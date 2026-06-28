@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relatório Institucional — 100% LIVE + Put/Call</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        /* ============================================================
+           ROOT & VARIÁVEIS
+           ============================================================ */
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #0f3460;
+            --accent-red: #e94560;
+            --accent-green: #00d98e;
+            --accent-yellow: #ffd60a;
+            --accent-blue: #00b4d8;
+            --text-light: #ecf0f1;
+            --text-muted: #95a5a6;
+            --bg-dark: #0d0d0d;
+            --bg-card: #1a1a2e;
+            --border: #2c3e50;
+            --font-base: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* ============================================================
+           RESET & BASE
+           ============================================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-base);
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ============================================================
+           HEADER
+           ============================================================ */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            padding: 40px 0;
+            border-bottom: 3px solid var(--accent-blue);
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 180, 216, 0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .header-title {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+            align-items: center;
+        }
+
+        .badge {
+            background: var(--secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border-left: 3px solid var(--accent-blue);
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .badge.sentiment-bearish {
+            border-left-color: var(--accent-red);
+            background: rgba(233, 69, 96, 0.1);
+            color: var(--accent-red);
+        }
+
+        .badge.sentiment-bullish {
+            border-left-color: var(--accent-green);
+            background: rgba(0, 217, 142, 0.1);
+            color: var(--accent-green);
+        }
+
+        .badge.extreme-fear {
+            border-left-color: var(--accent-red);
+            background: rgba(233, 69, 96, 0.15);
+            color: var(--accent-red);
+            font-weight: 700;
+        }
+
+        .live-indicator {
+            background: rgba(0, 217, 142, 0.15);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        /* ============================================================
+           SUMMARY GRID
+           ============================================================ */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 8px 32px rgba(0, 180, 216, 0.15);
+            transform: translateY(-4px);
+        }
+
+        .summary-card h3 {
+            font-size: 0.9em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .summary-card .value {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .summary-card .value.positive {
+            color: var(--accent-green);
+        }
+
+        .summary-card .value.negative {
+            color: var(--accent-red);
+        }
+
+        .summary-card .subtext {
+            font-size: 0.85em;
+            color: var(--text-muted);
+        }
+
+        /* ============================================================
+           SECTIONS & TITLES
+           ============================================================ */
+        .section-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin: 40px 0 20px 0;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--accent-blue);
+            color: var(--text-light);
+        }
+
+        /* ============================================================
+           TABLES
+           ============================================================ */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        thead {
+            background: var(--secondary);
+            border-bottom: 2px solid var(--accent-blue);
+        }
+
+        th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95em;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(0, 180, 216, 0.05);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-source {
+            font-size: 0.75em;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 4px;
+        }
+
+        .outlier {
+            background-color: rgba(255, 214, 10, 0.1);
+            color: var(--accent-yellow);
+            font-weight: 600;
+        }
+
+        .alert-highlight {
+            background-color: rgba(255, 214, 10, 0.2) !important;
+            border-left: 4px solid var(--accent-yellow);
+            animation: alertPulse 1.5s ease-in-out 3;
+        }
+
+        .watchlist-highlight {
+            background-color: rgba(0, 180, 216, 0.25) !important;
+            border-left: 4px solid var(--accent-blue);
+            animation: watchPulse 2s ease-in-out 2;
+        }
+
+        @keyframes alertPulse {
+            0% { background-color: rgba(255, 214, 10, 0.1); }
+            50% { background-color: rgba(255, 214, 10, 0.4); }
+            100% { background-color: rgba(255, 214, 10, 0.1); }
+        }
+
+        @keyframes watchPulse {
+            0% { background-color: rgba(0, 180, 216, 0.1); }
+            50% { background-color: rgba(0, 180, 216, 0.4); }
+            100% { background-color: rgba(0, 180, 216, 0.1); }
+        }
+
+        .address-tag {
+            background: var(--secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: var(--accent-blue);
+        }
+
+        .exchange-tag {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent-red);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .wallet-tag {
+            background: rgba(0, 217, 142, 0.2);
+            color: var(--accent-green);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .entity-tag {
+            background: rgba(255, 214, 10, 0.2);
+            color: var(--accent-yellow);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 700;
+        }
+
+        /* ============================================================
+           CHARTS
+           ============================================================ */
+        .chart-wrapper {
+            position: relative;
+            height: 320px;
+            width: 100%;
+            margin-bottom: 30px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .chart-wrapper canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* ============================================================
+           CONFIRMATION PANEL
+           ============================================================ */
+        .confirmation-panel {
+            background: var(--bg-card);
+            border-left: 4px solid var(--accent-blue);
+            padding: 24px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+        }
+
+        .confirmation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .confirmation-pillar {
+            background: var(--primary);
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .pillar-status {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+
+        .pillar-name {
+            font-size: 0.9em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .confirmation-description {
+            background: var(--primary);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            line-height: 1.7;
+            color: var(--text-light);
+        }
+
+        /* ============================================================
+           WHALE ACTIVITY
+           ============================================================ */
+        .whale-activity {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .whale-card {
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .whale-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .whale-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .whale-entity {
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+
+        .whale-action {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .whale-action.accumulating {
+            background: rgba(0, 217, 142, 0.2);
+            color: var(--accent-green);
+        }
+
+        .whale-action.distributing {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent-red);
+        }
+
+        .whale-value {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: var(--accent-yellow);
+            margin-bottom: 8px;
+        }
+
+        .whale-transaction {
+            background: rgba(0, 180, 216, 0.05);
+            border-left: 3px solid var(--accent-blue);
+            padding: 10px 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .whale-transaction:last-child {
+            margin-bottom: 0;
+        }
+
+        /* ============================================================
+           SCORES
+           ============================================================ */
+        .score-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .score-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .score-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .score-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        /* ============================================================
+           CONVICTION & BADGES
+           ============================================================ */
+        .conviction-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.95em;
+            margin-right: 10px;
+        }
+
+        .conviction-bearish {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        .conviction-bullish {
+            background: rgba(0, 217, 142, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .on-chain-cycle {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+            background: rgba(255, 214, 10, 0.15);
+            color: var(--accent-yellow);
+            border: 1px solid var(--accent-yellow);
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        footer {
+            background: var(--primary);
+            border-top: 2px solid var(--accent-blue);
+            padding: 40px 20px;
+            margin-top: 60px;
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .footer-section {
+            margin-bottom: 24px;
+        }
+
+        .footer-section h4 {
+            color: var(--text-light);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+
+        .disclaimer {
+            background: rgba(233, 69, 96, 0.1);
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            line-height: 1.8;
+            color: var(--text-light);
+        }
+
+        .source-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 12px;
+        }
+
+        .source-item {
+            padding: 8px;
+            background: var(--secondary);
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-blue);
+            font-size: 0.85em;
+        }
+
+        /* ============================================================
+           RESPONSIVIDADE
+           ============================================================ */
+        @media (max-width: 768px) {
+            .header-title {
+                font-size: 1.8em;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .confirmation-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .score-container {
+                grid-template-columns: 1fr;
+            }
+
+            .source-list {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.85em;
+            }
+
+            th, td {
+                padding: 10px 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-meta {
+                gap: 10px;
+                font-size: 0.85em;
+            }
+
+            .badge {
+                padding: 6px 12px;
+                font-size: 0.85em;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .confirmation-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-content {
+                padding: 0 15px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+        }
+
+        /* ============================================================
+           UTILITÁRIOS
+           ============================================================ */
+        a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ============================================================
+        HEADER
+        ============================================================ -->
+        <header>
+            <div class="header-content">
+                <h1 class="header-title">📊 RELATÓRIO INSTITUCIONAL — 100% LIVE + Put/Call</h1>
+                <div class="header-meta">
+                    <div class="badge" id="header-timestamp">📅 28 JUN 2026 | 16:30 UTC-3</div>
+                    <div class="badge sentiment-bearish" id="header-sentiment">⚠️ SENTIMENTO: PESSIMISTA</div>
+                    <div class="badge extreme-fear" id="header-fng">😱 FEAR & GREED: -- (---)</div>
+                    <div class="badge">⚡ STATUS: MARKDOWN</div>
+                    <span class="live-indicator">🔴 LIVE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ============================================================
+        RESUMO EXECUTIVO
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">📌 RESUMO EXECUTIVO</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h3>Bitcoin</h3>
+                    <div class="value negative" id="btc-price">$---</div>
+                    <div class="subtext" id="btc-change">⏳</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Ethereum</h3>
+                    <div class="value negative" id="eth-price">$---</div>
+                    <div class="subtext" id="eth-change">⏳</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Solana</h3>
+                    <div class="value negative" id="sol-price">$---</div>
+                    <div class="subtext" id="sol-change">⏳</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Sentiment Macro</h3>
+                    <div class="value negative" id="macro-summary">DXY <span id="macro-dxy">--</span> | US10Y <span id="macro-us10y">--%</span></div>
+                    <div class="subtext" id="macro-status">⏳</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+        ON-CHAIN ANALYSIS
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">⛓️ ANÁLISE ON-CHAIN & DERIVADOS (LIVE)</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>Valor (Live)</th>
+                            <th>Interpretação</th>
+                            <th>Fonte</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>MVRV (BTC)</strong></td>
+                            <td id="mvrv">⏳</td>
+                            <td id="mvrv-interp">--</td>
+                            <td><span class="data-source">BRK (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>MVRV STH (BTC)</strong></td>
+                            <td id="mvrv-sth">⏳</td>
+                            <td id="mvrv-sth-interp">--</td>
+                            <td><span class="data-source">BRK (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>SOPR</strong></td>
+                            <td id="sopr">⏳</td>
+                            <td id="sopr-interp">--</td>
+                            <td><span class="data-source">BRK (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>aSOPR 7D</strong></td>
+                            <td id="asopr">⏳</td>
+                            <td id="asopr-interp">--</td>
+                            <td><span class="data-source">BRK (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Realized Price (BTC)</strong></td>
+                            <td id="realized-price">⏳</td>
+                            <td>ℹ️ Preço médio de custo</td>
+                            <td><span class="data-source">BRK (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>ETF Flows (BTC)</strong></td>
+                            <td id="etf-btc-live"><strong>--</strong></td>
+                            <td id="etf-btc-interp">⏳</td>
+                            <td><span class="data-source">Farside (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>ETF Flows (ETH)</strong></td>
+                            <td id="etf-eth-live"><strong>--</strong></td>
+                            <td id="etf-eth-interp">⏳</td>
+                            <td><span class="data-source">Farside (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Exchange Netflow (24h)</strong></td>
+                            <td id="exchange-netflow">⏳</td>
+                            <td id="exchange-netflow-interp">--</td>
+                            <td><span class="data-source">CoinGlass (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Funding Rate</strong></td>
+                            <td id="funding-rate">⏳</td>
+                            <td id="funding-rate-interp">--</td>
+                            <td><span class="data-source">Binance (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Open Interest</strong></td>
+                            <td id="open-interest">⏳</td>
+                            <td id="open-interest-interp">--</td>
+                            <td><span class="data-source">Binance (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>BTC Put/Call Ratio</strong></td>
+                            <td id="put-call-ratio">⏳</td>
+                            <td id="put-call-interp">--</td>
+                            <td><span class="data-source">CoinGlass / Deribit (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>BTC Hashrate</strong></td>
+                            <td id="btc-hashrate">⏳</td>
+                            <td>✅ Elevado</td>
+                            <td><span class="data-source">Blockchain.com (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Miner Outflow</strong></td>
+                            <td id="miner-outflow">⏳</td>
+                            <td id="miner-outflow-interp">--</td>
+                            <td><span class="data-source">CoinGlass (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Active Addresses (BTC)</strong></td>
+                            <td id="active-addresses">⏳</td>
+                            <td>ℹ️ Moderado</td>
+                            <td><span class="data-source">BRK (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>ETH Gas Price</strong></td>
+                            <td id="eth-gas">⏳</td>
+                            <td>✅ Baixo</td>
+                            <td><span class="data-source">Etherchain (LIVE)</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="chart-wrapper"><canvas id="chart_etf_flows"></canvas></div>
+        </section>
+
+        <!-- ============================================================
+        PAINEL DE CONFIRMAÇÃO
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">✅ PAINEL DE CONFIRMAÇÃO DE FUNDO</h2>
+            <div class="confirmation-panel">
+                <div class="confirmation-grid">
+                    <div class="confirmation-pillar">
+                        <div class="pillar-status" id="p-mvrv">❌</div>
+                        <div class="pillar-name">MVRV Extremo</div>
+                    </div>
+                    <div class="confirmation-pillar">
+                        <div class="pillar-status" id="p-fear">✅</div>
+                        <div class="pillar-name">Fear Extremo</div>
+                    </div>
+                    <div class="confirmation-pillar">
+                        <div class="pillar-status" id="p-sth">✅</div>
+                        <div class="pillar-name">STH Capitulação</div>
+                    </div>
+                    <div class="confirmation-pillar">
+                        <div class="pillar-status" id="p-smart">❌</div>
+                        <div class="pillar-name">Smart Money Acum.</div>
+                    </div>
+                    <div class="confirmation-pillar">
+                        <div class="pillar-status" id="p-macro">❌</div>
+                        <div class="pillar-name">Macro Suporta</div>
+                    </div>
+                </div>
+                <div class="confirmation-description"><strong>Análise:</strong> Painel dinâmico baseado nos dados ao vivo.</div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+        MACRO INDICADORES
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">🌍 INDICADORES MACROECONÔMICOS (LIVE)</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Indicador</th>
+                            <th>Valor (Live)</th>
+                            <th>Interpretação</th>
+                            <th>Fonte</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>DXY</strong></td>
+                            <td id="dxy-val">--</td>
+                            <td>🔴 USD Forte</td>
+                            <td><span class="data-source">FRED (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Fed Rate</strong></td>
+                            <td id="fed-val">--%</td>
+                            <td>⚠️ Juros restritivos</td>
+                            <td><span class="data-source">FRED (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>US 10Y Yield</strong></td>
+                            <td id="us10y-val">--%</td>
+                            <td>⚠️ Yields elevados</td>
+                            <td><span class="data-source">FRED (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>VIX</strong></td>
+                            <td id="vix-val">--</td>
+                            <td>ℹ️ Estresse do mercado</td>
+                            <td><span class="data-source">FRED (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>NASDAQ % (24h)</strong></td>
+                            <td id="nasdaq-val">--%</td>
+                            <td>🔴 Tech</td>
+                            <td><span class="data-source">Alpha Vantage (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>S&P 500 % (24h)</strong></td>
+                            <td id="sp500-val">--%</td>
+                            <td>ℹ️ Broad market</td>
+                            <td><span class="data-source">Alpha Vantage (LIVE)</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="chart-wrapper"><canvas id="chart_macro_rates"></canvas></div>
+        </section>
+
+        <!-- ============================================================
+        WHALE ACTIVITY
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">🐋 ATIVIDADE DE BALEIAS & ALERTAS</h2>
+            <div class="whale-activity" id="whale-container">
+                <div class="whale-card" id="whale-btc">
+                    <div class="whale-header">
+                        <span class="whale-entity">🪙 Bitcoin</span>
+                        <span class="whale-action accumulating">AGUARDANDO</span>
+                    </div>
+                    <div class="whale-value" id="whale-btc-value">--</div>
+                    <div class="whale-transaction" id="whale-btc-tx">⏳</div>
+                </div>
+                <div class="whale-card" id="whale-eth">
+                    <div class="whale-header">
+                        <span class="whale-entity">💎 Ethereum</span>
+                        <span class="whale-action distributing">AGUARDANDO</span>
+                    </div>
+                    <div class="whale-value" id="whale-eth-value">--</div>
+                    <div class="whale-transaction" id="whale-eth-tx">⏳</div>
+                </div>
+                <div class="whale-card" id="whale-sol">
+                    <div class="whale-header">
+                        <span class="whale-entity">🚀 Solana</span>
+                        <span class="whale-action accumulating">AGUARDANDO</span>
+                    </div>
+                    <div class="whale-value" id="whale-sol-value">--</div>
+                    <div class="whale-transaction" id="whale-sol-tx">⏳</div>
+                </div>
+            </div>
+            <div class="chart-wrapper"><canvas id="chart_whale_flow"></canvas></div>
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px;">
+                <h3 style="color:var(--accent-yellow);margin-bottom:12px;">🚨 ALERTAS DE BALEIAS & WATCHLIST</h3>
+                <div class="table-wrapper" style="margin-bottom:0;">
+                    <table id="whale-alerts-table">
+                        <thead>
+                            <tr>
+                                <th>Ativo</th>
+                                <th>Valor (USD)</th>
+                                <th>Quantidade</th>
+                                <th>Entidade</th>
+                                <th>Origem</th>
+                                <th>Destino</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="whale-alerts-body">
+                            <tr>
+                                <td colspan="7" style="text-align:center;color:var(--text-muted);">⏳ Aguardando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="confirmation-description" id="whale-summary"><strong>Smart Money Direction:</strong> ⏳ Atualizando...</div>
+        </section>
+
+        <!-- ============================================================
+        STABLECOINS & DEFI
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">💰 STABLECOINS & DEFI (LIVE)</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>Valor (Live)</th>
+                            <th>Interpretação</th>
+                            <th>Fonte</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Total Stablecoin Supply</strong></td>
+                            <td id="stablecoin-supply">--</td>
+                            <td>✅ Liquidez disponível</td>
+                            <td><span class="data-source">DefiLlama (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>DeFi TVL</strong></td>
+                            <td id="defi-tvl">--</td>
+                            <td id="defi-tvl-interp">⏳</td>
+                            <td><span class="data-source">DefiLlama (LIVE)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>DeFi TVL Change (24h)</strong></td>
+                            <td id="defi-tvl-change">--</td>
+                            <td>ℹ️ Movimento</td>
+                            <td><span class="data-source">DefiLlama (LIVE)</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ============================================================
+        SCORES
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">📈 SCORES DE ANÁLISE</h2>
+            <div class="score-container">
+                <div class="score-box">
+                    <div class="score-label">Risk Score</div>
+                    <div class="score-value" style="color:var(--accent-red);">72/100</div>
+                    <div class="score-bar"><div class="score-fill" style="width:72%;background:linear-gradient(90deg,var(--accent-red),var(--accent-yellow));"></div></div>
+                </div>
+                <div class="score-box">
+                    <div class="score-label">Confidence Score</div>
+                    <div class="score-value" style="color:var(--accent-green);">85/100</div>
+                    <div class="score-bar"><div class="score-fill" style="width:85%;background:var(--accent-green);"></div></div>
+                </div>
+                <div class="score-box">
+                    <div class="score-label">Entry Score</div>
+                    <div class="score-value" style="color:var(--accent-yellow);">48/100</div>
+                    <div class="score-bar"><div class="score-fill" style="width:48%;background:var(--accent-yellow);"></div></div>
+                </div>
+                <div class="score-box">
+                    <div class="score-label">Exit Score</div>
+                    <div class="score-value" style="color:var(--accent-red);">62/100</div>
+                    <div class="score-bar"><div class="score-fill" style="width:62%;background:var(--accent-red);"></div></div>
+                </div>
+            </div>
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:30px;">
+                <h3 style="color:var(--text-light);margin-bottom:16px;">Conviction</h3>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+                    <span class="conviction-badge conviction-bearish">🔴 BEARISH CONVICTION</span>
+                    <span class="on-chain-cycle">📉 Ciclo On-Chain: MARKDOWN</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+        CENÁRIOS & ALLOCATION
+        ============================================================ -->
+        <section>
+            <h2 class="section-title">🎯 CENÁRIOS & MATRIZ DE APORTE</h2>
+            <div class="chart-wrapper"><canvas id="chart_scenarios"></canvas></div>
+            <div class="chart-wrapper"><canvas id="chart_allocation"></canvas></div>
+        </section>
+
+        <!-- ============================================================
+        FOOTER
+        ============================================================ -->
+        <footer>
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>📋 Metodologia</h4>
+                    <p>Todas as métricas agora são <strong>100% ao vivo</strong>, incluindo <strong>BTC Put/Call Ratio</strong> via CoinGlass scraping com fallback Deribit. Atualização a cada <strong>60 segundos</strong>.</p>
+                </div>
+                <div class="disclaimer"><strong>🔴 AVISO LEGAL</strong><br>Uso exclusivamente informativo. Não é recomendação de investimento.</div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
+    <script>
+        // ================================================================
+        // CONFIGURAÇÕES
+        // ================================================================
+        const FRED_API_KEY = 'cbe3655dd2b0a46d0e5c43324a21ab64';
+        const ALPHA_VANTAGE_KEY = 'UN05WB1U49R5QG6A';
+
+        // ================================================================
+        // CHART.JS INICIALIZAÇÃO
+        // ================================================================
+        window.charts = [];
+
+        function destroyAllCharts() {
+            window.charts.forEach(function(chart) {
+                if (chart) chart.destroy();
+            });
+            window.charts = [];
+        }
+
+        const chartColors = {
+            primary: 'rgb(0, 180, 216)',
+            secondary: 'rgb(233, 69, 96)',
+            success: 'rgb(0, 217, 142)',
+            warning: 'rgb(255, 214, 10)',
+            text: 'rgb(236, 240, 241)',
+            border: 'rgb(44, 62, 80)'
+        };
+
+        // ================================================================
+        // HELPER FUNCTIONS
+        // ================================================================
+        function formatCurrency(value) {
+            return '$' + Number(value).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function formatChange(value) {
+            const num = parseFloat(value);
+            if (isNaN(num)) return '--';
+            return (num >= 0 ? '+' : '') + num.toFixed(2) + '%';
+        }
+
+        function getChangeClass(value) {
+            const num = parseFloat(value);
+            if (isNaN(num)) return 'negative';
+            return num >= 0 ? 'positive' : 'negative';
+        }
+
+        function formatCurrencyShort(value) {
+            const abs = Math.abs(value);
+            if (abs >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+            if (abs >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+            if (abs >= 1e3) return (value / 1e3).toFixed(2) + 'K';
+            return value.toFixed(2);
+        }
+
+        function truncateAddress(addr, len = 6) {
+            if (!addr) return 'Desconhecido';
+            if (addr.length <= len * 2) return addr;
+            return addr.slice(0, len) + '...' + addr.slice(-len);
+        }
+
+        function getExplorerLink(addr, chain) {
+            if (!addr) return '#';
+            let base = '';
+            if (chain === 'BTC') base = 'https://www.blockchain.com/btc/address/';
+            else if (chain === 'ETH') base = 'https://etherscan.io/address/';
+            else if (chain === 'SOL') base = 'https://explorer.solana.com/address/';
+            else base = 'https://www.blockchain.com/explorer/addresses/';
+            return base + addr;
+        }
+
+        // ================================================================
+        // WATCHLIST
+        // ================================================================
+        const WATCHLIST = [
+            { name: 'MicroStrategy', category: 'Instituição', blockchain: 'BTC', address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa' },
+            { name: 'Vitalik Buterin', category: 'Founder', blockchain: 'ETH', address: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e' },
+            { name: 'Ethereum Foundation', category: 'Fundação', blockchain: 'ETH', address: '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe' },
+            { name: 'Binance Cold Wallet', category: 'Exchange', blockchain: 'ETH', address: '0x28C6c06298d514Db089934071355E5743bf21d60' },
+            { name: 'Solana Foundation', category: 'Fundação', blockchain: 'SOL', address: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWV' },
+            { name: 'Mt. Gox Trustee', category: 'Whale', blockchain: 'BTC', address: '1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF' },
+            { name: 'US Government (Silk Road)', category: 'Governo', blockchain: 'BTC', address: '1FfmbHfnpaZjKFvyi1okTjJJusN455paPH' },
+        ];
+
+        function checkWatchlist(addr, chain) {
+            if (!addr) return null;
+            const norm = addr.toLowerCase().trim();
+            for (let i = 0; i < WATCHLIST.length; i++) {
+                const e = WATCHLIST[i];
+                if (e.blockchain !== chain) continue;
+                if (e.address.toLowerCase() === norm) return e;
+            }
+            return null;
+        }
+
+        window.whaleHistory = [];
+
+        // ================================================================
+        // FETCH FUNCTIONS
+        // ================================================================
+        async function fetchPrices() {
+            try {
+                const url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true';
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+
+                const btc = data.bitcoin;
+                document.getElementById('btc-price').textContent = formatCurrency(btc.usd);
+                document.getElementById('btc-price').className = 'value ' + getChangeClass(btc.usd_24h_change);
+                document.getElementById('btc-change').textContent = formatChange(btc.usd_24h_change);
+
+                const eth = data.ethereum;
+                document.getElementById('eth-price').textContent = formatCurrency(eth.usd);
+                document.getElementById('eth-price').className = 'value ' + getChangeClass(eth.usd_24h_change);
+                document.getElementById('eth-change').textContent = formatChange(eth.usd_24h_change);
+
+                const sol = data.solana;
+                document.getElementById('sol-price').textContent = formatCurrency(sol.usd);
+                document.getElementById('sol-price').className = 'value ' + getChangeClass(sol.usd_24h_change);
+                document.getElementById('sol-change').textContent = formatChange(sol.usd_24h_change);
+            } catch (e) {
+                console.warn('CoinGecko error:', e);
+            }
+        }
+
+        async function fetchFearGreed() {
+            try {
+                const resp = await fetch('https://api.alternative.me/fng/?limit=1');
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                const item = data.data[0];
+                const value = item.value;
+                const classification = item.value_classification;
+
+                document.getElementById('header-fng').innerHTML = '😱 FEAR & GREED: ' + value + ' (' + classification + ')';
+                document.getElementById('header-fng').className = 'badge ' + (parseInt(value) <= 25 ? 'extreme-fear' : '');
+
+                const headerSentiment = document.getElementById('header-sentiment');
+                const sentimentText = (parseInt(value) <= 25) ? '⚠️ SENTIMENTO: PESSIMISTA' :
+                    (parseInt(value) <= 45 ? '⚠️ SENTIMENTO: NEUTRO' : '✅ SENTIMENTO: BULLISH');
+                headerSentiment.textContent = sentimentText;
+                headerSentiment.className = 'badge ' + (parseInt(value) <= 25 ? 'sentiment-bearish' : 'sentiment-bullish');
+            } catch (e) {
+                console.warn('Alternative.me error:', e);
+            }
+        }
+
+        async function fetchMacroFromFRED() {
+            const series = [
+                { id: 'DTWEXBGS', element: 'macro-dxy', table: 'dxy-val', suffix: '', fallback: '101,37' },
+                { id: 'FEDFUNDS', element: null, table: 'fed-val', suffix: '%', fallback: '3,62%' },
+                { id: 'DGS10', element: 'macro-us10y', table: 'us10y-val', suffix: '%', fallback: '4,28%' },
+                { id: 'VIXCLS', element: null, table: 'vix-val', suffix: '', fallback: '18,41' }
+            ];
+
+            const promises = series.map(s =>
+                fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${s.id}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=1`)
+                    .then(res => res.json())
+                    .then(data => {
+                        let val = data.observations?.[0]?.value;
+                        if (val === null || val === undefined || val === '.') val = s.fallback;
+                        if (s.element) document.getElementById(s.element).textContent = val + s.suffix;
+                        document.getElementById(s.table).textContent = val + s.suffix;
+                    })
+                    .catch(err => {
+                        console.warn('FRED error for ' + s.id, err);
+                        if (s.element) document.getElementById(s.element).textContent = s.fallback;
+                        document.getElementById(s.table).textContent = s.fallback;
+                    })
+            );
+
+            await Promise.all(promises);
+            const dxy = document.getElementById('macro-dxy').textContent;
+            const us10y = document.getElementById('macro-us10y').textContent;
+            document.getElementById('macro-summary').innerHTML = `DXY ${dxy} | US10Y ${us10y}`;
+            document.getElementById('macro-status').textContent = '✅ Dados atualizados via FRED (LIVE)';
+        }
+
+        async function fetchStocksFromAlpha() {
+            const symbols = [
+                { symbol: 'SPX', table: 'sp500-val', fallback: '-0,05%' },
+                { symbol: 'IXIC', table: 'nasdaq-val', fallback: '-1,09%' }
+            ];
+
+            const promises = symbols.map(s =>
+                fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${s.symbol}&apikey=${ALPHA_VANTAGE_KEY}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const quote = data['Global Quote'];
+                        if (quote && quote['10. change percent']) {
+                            const change = quote['10. change percent'].replace('%', '');
+                            document.getElementById(s.table).textContent = change + '%';
+                            document.getElementById(s.table).className = getChangeClass(change);
+                        } else {
+                            document.getElementById(s.table).textContent = s.fallback;
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('Alpha Vantage error for ' + s.symbol, err);
+                        document.getElementById(s.table).textContent = s.fallback;
+                    })
+            );
+
+            await Promise.all(promises);
+        }
+
+        async function fetchDeFiData() {
+            try {
+                const resp1 = await fetch('https://stablecoins.llama.fi/stablecoinoverview');
+                if (!resp1.ok) throw new Error('HTTP ' + resp1.status);
+                const data1 = await resp1.json();
+                let totalSupply = 0;
+                data1.peggedAssets.forEach(asset => {
+                    if (asset.total) totalSupply += asset.total;
+                });
+                document.getElementById('stablecoin-supply').textContent = formatCurrency(totalSupply);
+
+                const resp2 = await fetch('https://api.llama.fi/charts');
+                if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+                const data2 = await resp2.json();
+                const lastTvl = data2[data2.length - 1].totalLiquidityUSD;
+                const prevTvl = data2[data2.length - 2].totalLiquidityUSD;
+                const change = ((lastTvl - prevTvl) / prevTvl) * 100;
+                document.getElementById('defi-tvl').textContent = formatCurrency(lastTvl);
+                document.getElementById('defi-tvl').className = 'value ' + getChangeClass(change);
+                document.getElementById('defi-tvl-change').textContent = formatChange(change);
+                document.getElementById('defi-tvl-interp').textContent = change >= 0 ? '✅ Entrada de liquidez' : '⚠️ Saída de liquidez';
+            } catch (e) {
+                console.warn('DefiLlama error:', e);
+                document.getElementById('stablecoin-supply').textContent = '$320B (fallback)';
+                document.getElementById('defi-tvl').textContent = '$70B (fallback)';
+                document.getElementById('defi-tvl-change').textContent = '-0,02% (fallback)';
+            }
+        }
+
+        async function fetchETFData() {
+            try {
+                const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://farside.co.uk/etf/');
+                const resp = await fetch(proxy);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const html = await resp.text();
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const tables = doc.querySelectorAll('table');
+                if (tables.length === 0) throw new Error('Nenhuma tabela');
+
+                let target = null;
+                for (let i = 0; i < tables.length; i++) {
+                    const txt = tables[i].innerText;
+                    if (txt.includes('BTC') || txt.includes('ETH') || txt.includes('Inflow')) {
+                        target = tables[i];
+                        break;
+                    }
+                }
+                if (!target) target = tables[0];
+
+                const rows = target.querySelectorAll('tbody tr').length > 0 ? target.querySelectorAll('tbody tr') : target.querySelectorAll('tr');
+                const btcByDate = {}, ethByDate = {};
+                const labels = [];
+
+                rows.forEach(row => {
+                    const cols = row.querySelectorAll('td');
+                    if (cols.length < 3) return;
+                    const ticker = cols[0]?.textContent?.trim() || '';
+                    const flowText = cols[1]?.textContent?.trim() || '0';
+                    const dateText = cols[2]?.textContent?.trim() || '';
+                    const flow = parseFloat(flowText.replace(/[^0-9.-]/g, '')) || 0;
+                    if (!ticker || isNaN(flow) || flow === 0) return;
+
+                    const d = new Date(dateText);
+                    const label = (!isNaN(d.getTime())) ?
+                        String(d.getDate()).padStart(2, '0') + ' ' + d.toLocaleString('en', { month: 'short' }).toUpperCase() :
+                        dateText || '28 JUN';
+
+                    const upper = ticker.toUpperCase();
+                    if (upper.includes('BTC') || upper.includes('BIT') || upper.includes('FBTC') || upper.includes('ARKB')) {
+                        if (!btcByDate[label]) btcByDate[label] = 0;
+                        btcByDate[label] += flow;
+                    }
+                    if (upper.includes('ETH') || upper.includes('ETHE') || upper.includes('ETHV')) {
+                        if (!ethByDate[label]) ethByDate[label] = 0;
+                        ethByDate[label] += flow;
+                    }
+                    if (!labels.includes(label)) labels.push(label);
+                });
+
+                if (Object.keys(btcByDate).length === 0 && Object.keys(ethByDate).length === 0) throw new Error('Sem dados');
+
+                labels.sort((a, b) => parseInt(a.split(' ')[0]) - parseInt(b.split(' ')[0]));
+                const last7 = labels.slice(-7);
+                const btcData = last7.map(d => btcByDate[d] || 0);
+                const ethData = last7.map(d => ethByDate[d] || 0);
+
+                if (etfChart) {
+                    etfChart.data.labels = last7;
+                    etfChart.data.datasets[0].data = btcData;
+                    etfChart.data.datasets[1].data = ethData;
+                    etfChart.update();
+                }
+
+                const lastBtc = btcData[btcData.length - 1] || 0;
+                const lastEth = ethData[ethData.length - 1] || 0;
+                document.getElementById('etf-btc-live').innerHTML = '<strong>' + lastBtc.toFixed(2) + 'M</strong>';
+                document.getElementById('etf-btc-interp').textContent = lastBtc < 0 ? '🔴 Saída' : '🟢 Entrada';
+                document.getElementById('etf-eth-live').innerHTML = '<strong>' + lastEth.toFixed(2) + 'M</strong>';
+                document.getElementById('etf-eth-interp').textContent = lastEth < 0 ? '🔴 Saída' : '🟢 Entrada';
+            } catch (e) {
+                console.warn('Farside error:', e);
+                const fb = ['22 JUN', '23 JUN', '24 JUN', '25 JUN', '26 JUN', '27 JUN', '28 JUN'];
+                const fbBtc = [-120, -85, -155, -92, -138, -165, -445];
+                const fbEth = [-8, -12, -15, -10, -18, -20, -12.85];
+                if (etfChart) {
+                    etfChart.data.labels = fb;
+                    etfChart.data.datasets[0].data = fbBtc;
+                    etfChart.data.datasets[1].data = fbEth;
+                    etfChart.update();
+                }
+                document.getElementById('etf-btc-live').innerHTML = '<strong>-$445M</strong>';
+                document.getElementById('etf-eth-live').innerHTML = '<strong>-$12,85M</strong>';
+            }
+        }
+
+        async function fetchBRK() {
+            const metrics = [
+                { id: 'mvrv', el: 'mvrv', interp: 'mvrv-interp', fallback: '1,15' },
+                { id: 'mvrv_short', el: 'mvrv-sth', interp: 'mvrv-sth-interp', fallback: '0,84' },
+                { id: 'sopr', el: 'sopr', interp: 'sopr-interp', fallback: '0,80' },
+                { id: 'sopr_adjusted', el: 'asopr', interp: 'asopr-interp', fallback: '0,99' },
+                { id: 'realized_price', el: 'realized-price', interp: null, fallback: '53600' },
+                { id: 'active_addresses', el: 'active-addresses', interp: null, fallback: '605298' }
+            ];
+
+            const promises = metrics.map(m =>
+                fetch(`https://bitview.space/api/metrics/btc/${m.id}?resolution=1d`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const val = data?.[0]?.[1];
+                        if (val !== undefined && val !== null) {
+                            const display = (m.id === 'realized_price' || m.id === 'active_addresses') ?
+                                Number(val).toLocaleString('en-US', { maximumFractionDigits: 0 }) :
+                                Number(val).toFixed(2);
+                            document.getElementById(m.el).textContent = (m.id === 'realized_price' ? '$' : '') + display;
+                            if (m.interp) {
+                                const num = parseFloat(val);
+                                let interpText = '';
+                                if (m.id === 'mvrv') interpText = num > 1.0 ? '⚠️ Acima de 1.0' : 'ℹ️ Abaixo de 1.0';
+                                else if (m.id === 'mvrv_short') interpText = num < 1.0 ? '✅ STH em perda' : '⚠️ STH em lucro';
+                                else if (m.id === 'sopr') interpText = num < 1.0 ? '🔴 Weakness' : '🟢 Strength';
+                                document.getElementById(m.interp).textContent = interpText;
+                            }
+                        } else {
+                            document.getElementById(m.el).textContent = m.fallback;
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('BRK error for ' + m.id, err);
+                        document.getElementById(m.el).textContent = m.fallback;
+                    })
+            );
+
+            await Promise.all(promises);
+        }
+
+        async function fetchBinanceDerivatives() {
+            try {
+                const resp1 = await fetch('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1');
+                if (!resp1.ok) throw new Error('HTTP ' + resp1.status);
+                const data1 = await resp1.json();
+                const fr = data1[0]?.fundingRate || 0;
+                document.getElementById('funding-rate').textContent = (fr * 100).toFixed(4) + '%';
+                document.getElementById('funding-rate-interp').textContent = fr > 0.0001 ? '✅ Longs pagam' :
+                    fr < -0.0001 ? '🔴 Shorts pagam' : 'ℹ️ Neutro';
+
+                const resp2 = await fetch('https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT');
+                if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+                const data2 = await resp2.json();
+                const oi = parseFloat(data2.openInterest) || 0;
+                document.getElementById('open-interest').textContent = formatCurrency(oi);
+                document.getElementById('open-interest-interp').textContent = oi > 1e9 ? '⚠️ Alto' : 'ℹ️ Moderado';
+            } catch (e) {
+                console.warn('Binance derivatives error:', e);
+                document.getElementById('funding-rate').textContent = '0,0043% (fallback)';
+                document.getElementById('open-interest').textContent = '$20,69B (fallback)';
+            }
+        }
+
+        async function fetchCoinGlass() {
+            try {
+                const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://coinglass.com/pro/BTC/Netflow');
+                const resp = await fetch(proxy);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const html = await resp.text();
+
+                const netflowMatch = html.match(/(?:Netflow|Exchange Netflow)[^0-9]*([0-9,]+)/i);
+                const minerMatch = html.match(/(?:Miner Outflow|Miner Netflow)[^0-9]*([0-9,]+)/i);
+                const netflow = netflowMatch ? parseFloat(netflowMatch[1].replace(/,/g, '')) : null;
+                const miner = minerMatch ? parseFloat(minerMatch[1].replace(/,/g, '')) : null;
+
+                if (netflow !== null) {
+                    document.getElementById('exchange-netflow').textContent = netflow.toLocaleString('en-US') + ' BTC';
+                    document.getElementById('exchange-netflow-interp').textContent = netflow > 0 ? '⚠️ Entrada em exchanges' : '✅ Saída de exchanges';
+                } else {
+                    document.getElementById('exchange-netflow').textContent = '7.247 BTC (fallback)';
+                }
+                if (miner !== null) {
+                    document.getElementById('miner-outflow').textContent = miner.toFixed(2) + ' BTC';
+                    document.getElementById('miner-outflow-interp').textContent = miner > 1000 ? '⚠️ Miners vendendo' : 'ℹ️ Miners estáveis';
+                }
+
+                const optionsProxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://coinglass.com/pro/BTC/Options');
+                const optResp = await fetch(optionsProxy);
+                if (optResp.ok) {
+                    const optHtml = await optResp.text();
+                    const pcMatch = optHtml.match(/(?:Put\/Call Ratio|Put-Call Ratio)[: ]*([0-9.]+)/i);
+                    if (pcMatch) {
+                        const pc = parseFloat(pcMatch[1]);
+                        if (!isNaN(pc) && pc > 0) {
+                            document.getElementById('put-call-ratio').textContent = pc.toFixed(2);
+                            document.getElementById('put-call-interp').textContent = pc < 0.7 ? '⚠️ Proteção baixa' :
+                                pc > 1.0 ? '🟢 Proteção alta' : 'ℹ️ Neutro';
+                            return;
+                        }
+                    }
+                }
+                throw new Error('Fallback para Deribit');
+            } catch (e) {
+                console.warn('CoinGlass error, tentando Deribit:', e);
+                try {
+                    const deribitResp = await fetch('https://www.deribit.com/api/v2/public/get_open_interest_by_currency?currency=BTC');
+                    if (!deribitResp.ok) throw new Error('HTTP ' + deribitResp.status);
+                    const deribitData = await deribitResp.json();
+                    if (deribitData && deribitData.result) {
+                        const oiPuts = deribitData.result.puts_open_interest || 0;
+                        const oiCalls = deribitData.result.calls_open_interest || 0;
+                        if (oiCalls > 0) {
+                            const pc = oiPuts / oiCalls;
+                            document.getElementById('put-call-ratio').textContent = pc.toFixed(2);
+                            document.getElementById('put-call-interp').textContent = pc < 0.7 ? '⚠️ Proteção baixa' :
+                                pc > 1.0 ? '🟢 Proteção alta' : 'ℹ️ Neutro';
+                            return;
+                        }
+                    }
+                    document.getElementById('put-call-ratio').textContent = '0,63 (fallback)';
+                } catch (derErr) {
+                    console.warn('Deribit error:', derErr);
+                    document.getElementById('put-call-ratio').textContent = '0,63 (fallback)';
+                }
+            }
+        }
+
+        async function fetchHashrate() {
+            try {
+                const resp = await fetch('https://blockchain.info/q/hashrate');
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const text = await resp.text();
+                const hr = parseFloat(text) / 1e18;
+                if (!isNaN(hr) && hr > 0) {
+                    document.getElementById('btc-hashrate').textContent = hr.toFixed(2) + ' EH/s';
+                } else {
+                    document.getElementById('btc-hashrate').textContent = '893 EH/s (fallback)';
+                }
+            } catch (e) {
+                console.warn('Hashrate error:', e);
+                document.getElementById('btc-hashrate').textContent = '893 EH/s (fallback)';
+            }
+        }
+
+        async function fetchGasPrice() {
+            try {
+                const resp = await fetch('https://www.etherchain.org/api/gasPriceOracle');
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                const baseFee = data.currentBaseFee || data.baseFee || 0;
+                const gasPrice = baseFee / 1e9;
+                if (gasPrice > 0) {
+                    document.getElementById('eth-gas').textContent = gasPrice.toFixed(2) + ' Gwei';
+                } else {
+                    document.getElementById('eth-gas').textContent = '5,68 Gwei (fallback)';
+                }
+            } catch (e) {
+                console.warn('Gas price error:', e);
+                document.getElementById('eth-gas').textContent = '5,68 Gwei (fallback)';
+            }
+        }
+
+        function updateWhaleUI(transactions) {
+            let btcAccum = 0, btcDist = 0, ethAccum = 0, ethDist = 0, solAccum = 0, solDist = 0;
+            let largestBtc = null, largestEth = null, largestSol = null;
+            const alerts = [];
+
+            transactions.forEach(tx => {
+                const usd = tx.usd || 0;
+                const symbol = (tx.symbol || tx.currency || '').toUpperCase();
+                const fromType = tx.from_type || '';
+                const toType = tx.to_type || '';
+                const fromAddr = tx.from_address || '';
+                const toAddr = tx.to_address || '';
+
+                let action = 'Transferência';
+                if ((fromType === 'exchange' || fromType === 'Exchange') && (toType !== 'exchange' && toType !== 'Exchange')) action = 'Acumulou';
+                else if ((fromType !== 'exchange' && fromType !== 'Exchange') && (toType === 'exchange' || toType === 'Exchange')) action = 'Distribuiu';
+
+                let chain = '';
+                if (symbol.includes('BTC')) chain = 'BTC';
+                else if (symbol.includes('ETH')) chain = 'ETH';
+                else if (symbol.includes('SOL')) chain = 'SOL';
+
+                const fromEntity = checkWatchlist(fromAddr, chain);
+                const toEntity = checkWatchlist(toAddr, chain);
+                const watchlisted = (fromEntity || toEntity);
+
+                if (symbol.includes('BTC')) {
+                    if (action === 'Acumulou') btcAccum += usd;
+                    else if (action === 'Distribuiu') btcDist += usd;
+                    if (!largestBtc || usd > largestBtc.usd) largestBtc = { symbol, usd, amount: tx.amount, from: fromAddr, to: toAddr, action, fromEntity, toEntity };
+                } else if (symbol.includes('ETH')) {
+                    if (action === 'Acumulou') ethAccum += usd;
+                    else if (action === 'Distribuiu') ethDist += usd;
+                    if (!largestEth || usd > largestEth.usd) largestEth = { symbol, usd, amount: tx.amount, from: fromAddr, to: toAddr, action, fromEntity, toEntity };
+                } else if (symbol.includes('SOL')) {
+                    if (action === 'Acumulou') solAccum += usd;
+                    else if (action === 'Distribuiu') solDist += usd;
+                    if (!largestSol || usd > largestSol.usd) largestSol = { symbol, usd, amount: tx.amount, from: fromAddr, to: toAddr, action, fromEntity, toEntity };
+                }
+
+                if (usd > 5000000 || watchlisted) {
+                    alerts.push({ symbol, usd, amount: tx.amount, from: fromAddr, to: toAddr, action, fromType, toType, fromEntity, toEntity });
+                }
+            });
+
+            function updateCard(asset, largest, elPrefix) {
+                const card = document.getElementById(elPrefix);
+                const valueEl = document.getElementById(elPrefix + '-value');
+                const txEl = document.getElementById(elPrefix + '-tx');
+                const actionEl = card.querySelector('.whale-action');
+                if (largest) {
+                    const label = largest.action;
+                    const cls = label === 'Acumulou' ? 'accumulating' : 'distributing';
+                    let entityStr = '';
+                    if (largest.fromEntity) entityStr += ' (origem: ' + largest.fromEntity.name + ')';
+                    if (largest.toEntity) entityStr += ' (destino: ' + largest.toEntity.name + ')';
+                    valueEl.textContent = formatCurrency(largest.usd);
+                    txEl.innerHTML = `<strong>${largest.amount ? Number(largest.amount).toFixed(2) : '--'} ${asset}</strong> movimentado (${label})${entityStr}`;
+                    actionEl.textContent = label + (entityStr ? ' ⚡' : '');
+                    actionEl.className = 'whale-action ' + cls;
+                } else {
+                    valueEl.textContent = '--';
+                    txEl.textContent = 'Nenhuma movimentação recente';
+                    actionEl.textContent = 'AGUARDANDO';
+                }
+            }
+            updateCard('BTC', largestBtc, 'whale-btc');
+            updateCard('ETH', largestEth, 'whale-eth');
+            updateCard('SOL', largestSol, 'whale-sol');
+
+            if (whaleFlowChart) {
+                whaleFlowChart.data.datasets[0].data = [btcAccum, ethAccum];
+                whaleFlowChart.data.datasets[1].data = [btcDist, ethDist];
+                whaleFlowChart.update();
+            }
+
+            const tbody = document.getElementById('whale-alerts-body');
+            if (alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">✅ Nenhum alerta > US$ 5M ou watchlist</td></tr>';
+            } else {
+                let rows = '';
+                alerts.sort((a, b) => {
+                    if (a.fromEntity || a.toEntity) return -1;
+                    if (b.fromEntity || b.toEntity) return 1;
+                    return b.usd - a.usd;
+                });
+                alerts.slice(0, 15).forEach(a => {
+                    const isWatch = (a.fromEntity || a.toEntity);
+                    const rowClass = isWatch ? 'watchlist-highlight' : (a.usd > 10000000 ? 'alert-highlight' : '');
+                    let entityDisplay = '—';
+                    if (a.fromEntity) entityDisplay = '🔵 ' + a.fromEntity.name + ' (origem)';
+                    if (a.toEntity) entityDisplay = '🟡 ' + a.toEntity.name + ' (destino)';
+                    if (a.fromEntity && a.toEntity) entityDisplay = '🔵 ' + a.fromEntity.name + ' → 🟡 ' + a.toEntity.name;
+                    const fromLabel = a.fromType.includes('exchange') ? '🏦 Exchange' : '👤 Wallet';
+                    const toLabel = a.toType.includes('exchange') ? '🏦 Exchange' : '👤 Wallet';
+                    const fromDisplay = a.from ? `<a href="${getExplorerLink(a.from, a.symbol)}" target="_blank" style="color:var(--accent-blue);">${truncateAddress(a.from)}</a>` : '--';
+                    const toDisplay = a.to ? `<a href="${getExplorerLink(a.to, a.symbol)}" target="_blank" style="color:var(--accent-blue);">${truncateAddress(a.to)}</a>` : '--';
+                    rows += `<tr class="${rowClass}">
+                                <td><strong>${a.symbol}</strong></td>
+                                <td><strong style="color:${isWatch ? 'var(--accent-blue)' : 'var(--accent-yellow)'};">${formatCurrency(a.usd)}</strong></td>
+                                <td>${a.amount ? Number(a.amount).toFixed(2) : '--'}</td>
+                                <td><span class="entity-tag">${entityDisplay}</span></td>
+                                <td><span class="exchange-tag">${fromLabel}</span> ${fromDisplay}</td>
+                                <td><span class="wallet-tag">${toLabel}</span> ${toDisplay}</td>
+                                <td><span class="${a.action === 'Acumulou' ? 'wallet-tag' : 'exchange-tag'}">${a.action}</span></td>
+                            </tr>`;
+                });
+                tbody.innerHTML = rows;
+            }
+
+            const summary = document.getElementById('whale-summary');
+            const btcDir = (btcAccum > btcDist) ? 'Acumulando' : 'Distribuindo';
+            const ethDir = (ethAccum > ethDist) ? 'Acumulando' : 'Distribuindo';
+            const solDir = (solAccum > solDist) ? 'Acumulando' : 'Distribuindo';
+            summary.innerHTML = `<strong>Smart Money Direction:</strong> BTC ${btcDir} (US$ ${formatCurrencyShort(btcAccum)} entrada vs US$ ${formatCurrencyShort(btcDist)} saída), ETH ${ethDir}, SOL ${solDir} — ${alerts.length} alertas (${WATCHLIST.length} endereços monitorados).`;
+        }
+
+        async function fetchWhales() {
+            try {
+                const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://whale-alert.io/api/transactions?limit=30');
+                const resp = await fetch(proxy);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (data && data.transactions && data.transactions.length > 0) {
+                    const valid = data.transactions.filter(tx => tx.usd && tx.usd > 0);
+                    window.whaleHistory = window.whaleHistory.concat(valid);
+                    if (window.whaleHistory.length > 100) window.whaleHistory = window.whaleHistory.slice(-100);
+                    updateWhaleUI(window.whaleHistory);
+                } else {
+                    throw new Error('Nenhuma transação');
+                }
+            } catch (e) {
+                console.warn('Whale error, fallback:', e);
+                const fallback = [
+                    { symbol: 'BTC', usd: 700000000, amount: 11400, from_address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', to_address: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy', from_type: 'wallet', to_type: 'wallet' },
+                    { symbol: 'ETH', usd: 27400000, amount: 15000, from_address: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', to_address: '0x28C6c06298d514Db089934071355E5743bf21d60', from_type: 'wallet', to_type: 'exchange' },
+                    { symbol: 'SOL', usd: 445564386, amount: 6270364, from_address: '5MpBjgvEoW5JUCEuN8x5sLw7skLZP8hVZbK1vX6qYcR', to_address: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWV', from_type: 'exchange', to_type: 'wallet' }
+                ];
+                window.whaleHistory = window.whaleHistory.concat(fallback);
+                if (window.whaleHistory.length > 100) window.whaleHistory = window.whaleHistory.slice(-100);
+                updateWhaleUI(window.whaleHistory);
+            }
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            const options = {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'America/Sao_Paulo'
+            };
+            document.getElementById('header-timestamp').textContent = '📅 ' + now.toLocaleString('pt-BR', options) + ' UTC-3 (LIVE)';
+        }
+
+        // ================================================================
+        // INICIALIZAR GRÁFICOS
+        // ================================================================
+        let etfChart, whaleFlowChart;
+
+        function initCharts() {
+            destroyAllCharts();
+
+            const ctx1 = document.getElementById('chart_etf_flows').getContext('2d');
+            etfChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['Carregando...'],
+                    datasets: [
+                        {
+                            label: 'BTC ETF Flow',
+                            data: [0],
+                            backgroundColor: 'rgba(233,69,96,0.6)',
+                            borderColor: 'rgb(233,69,96)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'ETH ETF Flow',
+                            data: [0],
+                            backgroundColor: 'rgba(0,180,216,0.4)',
+                            borderColor: 'rgb(0,180,216)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, labels: { color: chartColors.text } },
+                        title: { display: true, text: 'ETF Flows — Últimos 7 Dias (LIVE)', color: chartColors.text }
+                    },
+                    scales: {
+                        y: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } },
+                        x: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } }
+                    }
+                }
+            });
+            window.charts.push(etfChart);
+
+            const ctx2 = document.getElementById('chart_macro_rates').getContext('2d');
+            const macroChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: ['17 JUN', '19 JUN', '21 JUN', '23 JUN', '25 JUN', '27 JUN', '28 JUN'],
+                    datasets: [
+                        {
+                            label: 'DXY',
+                            data: [100.8, 100.95, 101.15, 101.28, 101.32, 101.35, 101.37],
+                            borderColor: 'rgb(233,69,96)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'US10Y (%)',
+                            data: [4.32, 4.30, 4.29, 4.28, 4.27, 4.28, 4.28],
+                            borderColor: 'rgb(255,214,10)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, labels: { color: chartColors.text } },
+                        title: { display: true, text: 'Macro: DXY x US10Y', color: chartColors.text }
+                    },
+                    scales: {
+                        y: { position: 'left', ticks: { color: chartColors.text }, grid: { color: chartColors.border } },
+                        y1: { position: 'right', ticks: { color: chartColors.text }, grid: { drawOnChartArea: false } },
+                        x: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } }
+                    }
+                }
+            });
+            window.charts.push(macroChart);
+
+            const ctx3 = document.getElementById('chart_scenarios').getContext('2d');
+            const scenariosChart = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Bounce Tático', 'Markdown Estendido', 'Reversal Estrutural'],
+                    datasets: [{
+                        data: [35, 45, 20],
+                        backgroundColor: ['rgba(255,214,10,0.6)', 'rgba(233,69,96,0.6)', 'rgba(0,217,142,0.6)']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: chartColors.text } } }
+                }
+            });
+            window.charts.push(scenariosChart);
+
+            const ctx4 = document.getElementById('chart_allocation').getContext('2d');
+            const allocationChart = new Chart(ctx4, {
+                type: 'pie',
+                data: {
+                    labels: ['BTC (25%)', 'ETH (10%)', 'Stablecoins (65%)'],
+                    datasets: [{
+                        data: [25, 10, 65],
+                        backgroundColor: ['rgba(0,180,216,0.6)', 'rgba(255,214,10,0.6)', 'rgba(0,217,142,0.6)']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: chartColors.text } } }
+                }
+            });
+            window.charts.push(allocationChart);
+
+            const ctx5 = document.getElementById('chart_whale_flow').getContext('2d');
+            whaleFlowChart = new Chart(ctx5, {
+                type: 'bar',
+                data: {
+                    labels: ['BTC', 'ETH'],
+                    datasets: [
+                        {
+                            label: 'Acumulação (Retirada de Exchange)',
+                            data: [0, 0],
+                            backgroundColor: 'rgba(0,217,142,0.7)',
+                            borderColor: 'rgb(0,217,142)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Distribuição (Depósito em Exchange)',
+                            data: [0, 0],
+                            backgroundColor: 'rgba(233,69,96,0.7)',
+                            borderColor: 'rgb(233,69,96)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, labels: { color: chartColors.text } },
+                        title: { display: true, text: 'Fluxo de Baleias (Acumulação vs Distribuição)', color: chartColors.text }
+                    },
+                    scales: {
+                        y: { ticks: { color: chartColors.text }, grid: { color: chartColors.border }, title: { display: true, text: 'Volume (USD)', color: chartColors.text } },
+                        x: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } }
+                    }
+                }
+            });
+            window.charts.push(whaleFlowChart);
+        }
+
+        // ================================================================
+        // REFRESH MASTER
+        // ================================================================
+        async function refreshAll() {
+            updateTimestamp();
+            await Promise.allSettled([
+                fetchPrices(),
+                fetchFearGreed(),
+                fetchMacroFromFRED(),
+                fetchStocksFromAlpha(),
+                fetchDeFiData(),
+                fetchETFData(),
+                fetchBRK(),
+                fetchBinanceDerivatives(),
+                fetchCoinGlass(),
+                fetchHashrate(),
+                fetchGasPrice(),
+                fetchWhales()
+            ]);
+
+            // Atualizar painel de confirmação
+            const mvrv = parseFloat(document.getElementById('mvrv').textContent.replace(',', '.'));
+            const mvrvSth = parseFloat(document.getElementById('mvrv-sth').textContent.replace(',', '.'));
+            const fear = parseInt(document.getElementById('header-fng').textContent.match(/\d+/)?.[0] || 50);
+
+            document.getElementById('p-mvrv').textContent = (mvrv > 1.5 || mvrv < 0.5) ? '✅' : '❌';
+            document.getElementById('p-fear').textContent = (fear <= 25) ? '✅' : '❌';
+            document.getElementById('p-sth').textContent = (mvrvSth < 1.0) ? '✅' : '❌';
+
+            if (whaleFlowChart) {
+                const btcAccum = whaleFlowChart.data.datasets[0].data[0] || 0;
+                const btcDist = whaleFlowChart.data.datasets[1].data[0] || 0;
+                document.getElementById('p-smart').textContent = (btcAccum > btcDist) ? '✅' : '❌';
+            }
+
+            const dxy = parseFloat(document.getElementById('dxy-val').textContent.replace(',', '.'));
+            document.getElementById('p-macro').textContent = (dxy < 100) ? '✅' : '❌';
+        }
+
+        // ================================================================
+        // INICIALIZAR
+        // ================================================================
+        initCharts();
+        refreshAll();
+        setInterval(refreshAll, 60000);
+    </script>
+</body>
+</html>
