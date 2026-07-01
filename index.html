@@ -1368,8 +1368,46 @@ function updateScoreDisplay(scoreData) {
 // GRÁFICO DE SCORE (HISTÓRICO) – CORRIGIDO (SEM DATE ADAPTER)
 // ================================================================
 function initScoreChart() {
-    const ctx = document.getElementById('scoreHistoryChart').getContext('2d');
-    scoreChart = new Chart(ctx, {
+    const canvas = document.getElementById('scoreHistoryChart');
+    if (!canvas) return;
+
+    // Plugin para linhas de referência (registrado globalmente para evitar erro)
+    const thresholdPlugin = {
+        id: 'customThresholdLines',
+        beforeDraw: function(chart) {
+            const yScale = chart.scales.y;
+            if (!yScale) return;
+            const ctx = chart.ctx;
+            const y25 = yScale.getPixelForValue(25);
+            const y75 = yScale.getPixelForValue(75);
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(233,69,96,0.5)';
+            ctx.beginPath();
+            ctx.moveTo(chart.chartArea.left, y25);
+            ctx.lineTo(chart.chartArea.right, y25);
+            ctx.stroke();
+            ctx.strokeStyle = 'rgba(0,217,142,0.5)';
+            ctx.beginPath();
+            ctx.moveTo(chart.chartArea.left, y75);
+            ctx.lineTo(chart.chartArea.right, y75);
+            ctx.stroke();
+            ctx.restore();
+            ctx.save();
+            ctx.fillStyle = 'rgba(233,69,96,0.7)';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('SHORT (25)', chart.chartArea.right - 80, y25 - 6);
+            ctx.fillStyle = 'rgba(0,217,142,0.7)';
+            ctx.fillText('LONG (75)', chart.chartArea.right - 80, y75 - 6);
+            ctx.restore();
+        }
+    };
+
+    // Registrar plugin globalmente (seguro)
+    Chart.register(thresholdPlugin);
+
+    scoreChart = new Chart(canvas, {
         type: 'line',
         data: {
             datasets: [{
@@ -1403,7 +1441,7 @@ function initScoreChart() {
             },
             scales: {
                 x: {
-                    type: 'linear', // MUDANÇA: não usa 'time' para evitar dependência de adapter
+                    type: 'linear',
                     grid: { color: 'rgba(44,62,80,0.3)' },
                     ticks: {
                         color: '#95a5a6',
@@ -1426,39 +1464,6 @@ function initScoreChart() {
             }
         }
     });
-    // Linhas de referência (25 e 75)
-    const plugin = {
-        id: 'customThresholdLines',
-        beforeDraw: function(chart) {
-            const yScale = chart.scales.y;
-            const ctx = chart.ctx;
-            const y25 = yScale.getPixelForValue(25);
-            const y75 = yScale.getPixelForValue(75);
-            ctx.save();
-            ctx.setLineDash([6, 4]);
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = 'rgba(233,69,96,0.5)';
-            ctx.beginPath();
-            ctx.moveTo(chart.chartArea.left, y25);
-            ctx.lineTo(chart.chartArea.right, y25);
-            ctx.stroke();
-            ctx.strokeStyle = 'rgba(0,217,142,0.5)';
-            ctx.beginPath();
-            ctx.moveTo(chart.chartArea.left, y75);
-            ctx.lineTo(chart.chartArea.right, y75);
-            ctx.stroke();
-            ctx.restore();
-            // Labels
-            ctx.save();
-            ctx.fillStyle = 'rgba(233,69,96,0.7)';
-            ctx.font = '10px sans-serif';
-            ctx.fillText('SHORT (25)', chart.chartArea.right - 80, y25 - 6);
-            ctx.fillStyle = 'rgba(0,217,142,0.7)';
-            ctx.fillText('LONG (75)', chart.chartArea.right - 80, y75 - 6);
-            ctx.restore();
-        }
-    };
-    scoreChart.plugins.register(plugin);
     updateScoreChart();
 }
 
@@ -1469,7 +1474,6 @@ function updateScoreChart() {
     const limit = msMap[currentScoreTimeframe] || 86400000;
     const cutoff = now - limit;
     const filtered = scoreHistory.filter(p => p.time >= cutoff);
-    // Limitar número de pontos para performance
     const maxPoints = 500;
     let data = filtered;
     if (filtered.length > maxPoints) {
