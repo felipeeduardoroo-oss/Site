@@ -406,7 +406,7 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 <button class="telegram-test-btn" id="test-telegram-btn"><span id="test-btn-label">📨 Testar Alerta</span></button>
 
 <!-- ============================================================
-    JAVASCRIPT COMPLETO (CORRIGIDO: SEM DEPENDÊNCIA DE DATE ADAPTER)
+    JAVASCRIPT COMPLETO (CORRIGIDO: CONEXÕES RESTAURADAS E OTIMIZADO)
     ============================================================ -->
 <script>
 // ================================================================
@@ -1469,7 +1469,14 @@ function updateScoreChart() {
     const limit = msMap[currentScoreTimeframe] || 86400000;
     const cutoff = now - limit;
     const filtered = scoreHistory.filter(p => p.time >= cutoff);
-    scoreChart.data.datasets[0].data = filtered.map(p => ({ x: p.time, y: p.score }));
+    // Limitar número de pontos para performance
+    const maxPoints = 500;
+    let data = filtered;
+    if (filtered.length > maxPoints) {
+        const step = Math.ceil(filtered.length / maxPoints);
+        data = filtered.filter((_, i) => i % step === 0);
+    }
+    scoreChart.data.datasets[0].data = data.map(p => ({ x: p.time, y: p.score }));
     scoreChart.update('none');
 }
 
@@ -1486,7 +1493,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ================================================================
-// ALERTA EM TEMPO REAL V13
+// ALERTA EM TEMPO REAL V13 (COM RECONEXÃO DE WEBSOCKETS)
 // ================================================================
 async function checkAdditionalAlertsV13(score, components) {
     const now = Date.now();
@@ -2005,7 +2012,7 @@ function initWhaleFlowChart() {
 }
 
 // ================================================================
-// CANDLESTICK WEBSOCKETS E FUNÇÕES
+// CANDLESTICK WEBSOCKETS E FUNÇÕES (COM RECONEXÃO AUTOMÁTICA)
 // ================================================================
 function updateTimestamp() {
     const ts = getCurrentTimestamp();
@@ -2145,8 +2152,10 @@ function initTickerWebSocket(symbol, priceElementId, changeElementId, sourceElem
                 }
             } catch (e) { console.warn(`Ticker ${symbol} parse error:`, e); }
         };
-        ws.onclose = () => { setTimeout(() => initTickerWebSocket(symbol, priceElementId, changeElementId,
-                sourceElementId), 5000); };
+        ws.onclose = () => {
+            console.warn(`Ticker ${symbol} fechado, reconectando em 5s...`);
+            setTimeout(() => initTickerWebSocket(symbol, priceElementId, changeElementId, sourceElementId), 5000);
+        };
         wsTickers[symbol] = ws;
     } catch (e) { console.warn(`Ticker ${symbol} init error:`, e); }
 }
@@ -2199,7 +2208,10 @@ function initCandleWebSocket() {
                 }
             } catch (e) { console.warn('Candle WebSocket parse error:', e); }
         };
-        wsCandles.onclose = () => setTimeout(initCandleWebSocket, 5000);
+        wsCandles.onclose = () => {
+            console.warn('Candle WebSocket fechado, reconectando em 5s...');
+            setTimeout(initCandleWebSocket, 5000);
+        };
     } catch (e) { console.warn('Candle WebSocket init error:', e); }
 }
 
@@ -2440,7 +2452,7 @@ async function init() {
     loadWeightsV6();
     updateTimestamp();
     initWhaleFlowChart();
-    initScoreChart(); // Inicializa o gráfico de histórico de score
+    initScoreChart();
 
     const whaleBtc = document.querySelector('#whale-btc .whale-action');
     if (whaleBtc) currentWhaleState = whaleBtc.textContent.trim().toLowerCase().includes('acumulando') ?
@@ -2514,4 +2526,4 @@ window.globalData = globalData;
 window.scoreHistory = scoreHistory;
 </script>
 </body>
-                                                                                                                      </html>
+</html>
