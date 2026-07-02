@@ -9,9 +9,6 @@
 <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js">
 </script>
 <style>
-/* ============================================================
-   ESTILOS (MANTIDOS – NENHUMA ALTERAÇÃO EXCETO NOVOS ELEMENTOS)
-   ============================================================ */
 :root {
     --primary: #1a1a2e;
     --secondary: #0f3460;
@@ -172,13 +169,9 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 .no-trades { text-align:center; padding:30px; color:var(--text-muted); }
 @media(max-width:768px){ .backtest-stats-grid{grid-template-columns:repeat(2,1fr); gap:10px} .backtest-table-wrap{max-height:300px} }
 
-/* ============================================================
-   NOVOS ESTILOS PARA O GRÁFICO DE SCORE
-   ============================================================ */
 .score-chart-section { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:30px; box-shadow:0 4px 16px rgba(0,0,0,.3); }
 .score-chart-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:16px; }
 .score-chart-header h3 { color:var(--text-light); font-size:1.1em; font-weight:600; }
-.score-chart-header .tf-buttons { margin:0; }
 .score-chart-wrapper { position:relative; height:240px; width:100%; }
 .score-chart-wrapper canvas { display:block; width:100%!important; height:100%!important; }
 .score-chart-legend { display:flex; justify-content:center; gap:30px; margin-top:12px; font-size:.75em; color:var(--text-muted); }
@@ -215,10 +208,6 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 <div class="score-details"><div class="score-detail-item"><span class="label">Tendência</span> <span class="value" id="score-trend">--</span></div><div class="score-detail-item"><span class="label">Momentum</span> <span class="value" id="score-momentum">--</span></div><div class="score-detail-item"><span class="label">Estrutura</span> <span class="value" id="score-structure">--</span></div><div class="score-detail-item"><span class="label">On-Chain</span> <span class="value" id="score-onchain">--</span></div><div class="score-detail-item"><span class="label">Volume</span> <span class="value" id="score-volume">--</span></div><div class="score-detail-item"><span class="label">OI Delta</span> <span class="value" id="score-oi">--</span></div></div>
 </div>
 </section>
-
-<!-- ============================================================
-    GRÁFICO DE SCORE INSTITUCIONAL (HISTÓRICO)
-    ============================================================ -->
 <section>
 <div class="score-chart-section">
 <div class="score-chart-header">
@@ -239,10 +228,6 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 </div>
 </div>
 </section>
-
-<!-- ============================================================
-    RESUMO EXECUTIVO
-    ============================================================ -->
 <section>
 <h2 class="section-title">📌 RESUMO EXECUTIVO</h2>
 <div class="summary-grid">
@@ -254,10 +239,6 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 </div>
 <div id="update-info" style="margin-top:10px;font-size:.85em;color:var(--text-muted);text-align:right;">Última atualização geral: <span id="last-update">--</span></div>
 </section>
-
-<!-- ============================================================
-    GRÁFICOS DE CANDLESTICK
-    ============================================================ -->
 <section>
 <h2 class="section-title">🕯️ GRÁFICOS DE CANDLESTICK (LIVE)</h2>
 <div class="candles-grid">
@@ -266,10 +247,6 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 <div class="candle-card"><h3>Solana (SOL/USDT)</h3><div class="tf-buttons" data-symbol="SOLUSDT"><button class="tf-btn" data-tf="1m">1m</button><button class="tf-btn" data-tf="5m">5m</button><button class="tf-btn" data-tf="15m">15m</button><button class="tf-btn active" data-tf="1h">1h</button><button class="tf-btn" data-tf="4h">4h</button><button class="tf-btn" data-tf="1d">1D</button><button class="tf-btn" data-tf="1w">1S</button></div><div class="candle-stats" id="sol-stats"><span class="stat" id="sol-stat-1d"><span class="label">1D</span> --</span><span class="stat" id="sol-stat-1s"><span class="label">1S</span> --</span><span class="stat" id="sol-stat-1m"><span class="label">1M</span> --</span></div><div id="candle-sol" class="candle-container"></div><div class="candle-legend"><span><span class="up">🟢</span> Alta</span><span><span class="down">🔴</span> Baixa</span><span>⏱️ <span id="sol-tf-label">1h</span></span></div><span class="source-with-time" id="candle-sol-source">Binance (WebSocket) • atualização instantânea</span></div>
 </div>
 </section>
-
-<!-- ============================================================
-    ON-CHAIN ANALYSIS
-    ============================================================ -->
 <section>
 <h2 class="section-title">⛓️ ANÁLISE ON-CHAIN &amp; DERIVADOS</h2>
 <div class="table-wrapper">
@@ -301,18 +278,10 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 </div>
 <div class="chart-wrapper"><canvas id="chart_etf_flows"></canvas></div>
 </section>
-
-<!-- ============================================================
-    PAINEL DE CONFIRMAÇÃO
-    ============================================================ -->
 <section>
 <h2 class="section-title">✅ PAINEL DE CONFIRMAÇÃO DE FUNDO</h2>
 <div class="confirmation-panel"><div class="confirmation-grid"><div class="confirmation-pillar"><div class="pillar-status" id="p-mvrv">❌</div><div class="pillar-name">MVRV Extremo</div></div><div class="confirmation-pillar"><div class="pillar-status" id="p-fear">✅</div><div class="pillar-name">Fear Extremo</div></div><div class="confirmation-pillar"><div class="pillar-status" id="p-sth">✅</div><div class="pillar-name">STH Capitulação</div></div><div class="confirmation-pillar"><div class="pillar-status" id="p-smart">❌</div><div class="pillar-name">Smart Money Acum.</div></div><div class="confirmation-pillar"><div class="pillar-status" id="p-macro">❌</div><div class="pillar-name">Macro Suporta</div></div></div><div class="confirmation-description"><strong>Análise:</strong> 3/5 pilares confirmam fundo. Mercado em capitulação tática.</div></div>
 </section>
-
-<!-- ============================================================
-    MACRO INDICADORES
-    ============================================================ -->
 <section>
 <h2 class="section-title">🌍 INDICADORES MACROECONÔMICOS (referência)</h2>
 <div class="table-wrapper"><table><thead><tr><th>Indicador</th><th>Valor</th><th>Interpretação</th><th>Última atualização</th></tr></thead><tbody>
@@ -325,10 +294,6 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 </tbody></table></div>
 <div class="chart-wrapper"><canvas id="chart_macro_rates"></canvas></div>
 </section>
-
-<!-- ============================================================
-    WHALE ACTIVITY
-    ============================================================ -->
 <section>
 <h2 class="section-title">🐋 ATIVIDADE DE BALEIAS (referência)</h2>
 <div class="whale-activity" id="whale-container">
@@ -339,10 +304,6 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 <div class="chart-wrapper"><canvas id="chart_whale_flow"></canvas></div>
 <div class="confirmation-description" id="whale-summary"><strong>Smart Money Direction (referência):</strong> BTC acumulando, ETH distribuindo, SOL acumulando.</div>
 </section>
-
-<!-- ============================================================
-    STABLECOINS & DEFI
-    ============================================================ -->
 <section>
 <h2 class="section-title">💰 STABLECOINS &amp; DEFI (referência)</h2>
 <div class="table-wrapper"><table><thead><tr><th>Métrica</th><th>Valor</th><th>Interpretação</th><th>Última atualização</th></tr></thead><tbody>
@@ -351,30 +312,18 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 <tr><td><strong>DeFi TVL Change (24h)</strong></td><td id="defi-tvl-change">-0,02%</td><td>ℹ️ Estável</td><td><span class="data-source" id="defi-change-source">DefiLlama • estático</span></td></tr>
 </tbody></table></div>
 </section>
-
-<!-- ============================================================
-    SCORES DE ANÁLISE (ESTÁTICOS)
-    ============================================================ -->
 <section>
 <h2 class="section-title">📈 SCORES DE ANÁLISE</h2>
 <div class="score-container"><div class="score-box"><div class="score-label">Risk Score</div><div class="score-value" style="color:var(--accent-red);">72/100</div><div class="score-bar"><div class="score-fill" style="width:72%;background:linear-gradient(90deg,var(--accent-red),var(--accent-yellow));"></div></div></div><div class="score-box"><div class="score-label">Confidence Score</div><div class="score-value" style="color:var(--accent-green);">85/100</div><div class="score-bar"><div class="score-fill" style="width:85%;background:var(--accent-green);"></div></div></div><div class="score-box"><div class="score-label">Entry Score</div><div class="score-value" style="color:var(--accent-yellow);">48/100</div><div class="score-bar"><div class="score-fill" style="width:48%;background:var(--accent-yellow);"></div></div></div><div class="score-box"><div class="score-label">Exit Score</div><div class="score-value" style="color:var(--accent-red);">62/100</div><div class="score-bar"><div class="score-fill" style="width:62%;background:var(--accent-red);"></div></div></div></div>
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:30px;"><h3 style="color:var(--text-light);margin-bottom:16px;">Conviction</h3><div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;"><span class="conviction-badge conviction-bearish">🔴 BEARISH CONVICTION</span><span class="on-chain-cycle">📉 Ciclo On-Chain: MARKDOWN</span></div></div>
 </section>
-
-<!-- ============================================================
-    CENÁRIOS & ALLOCATION
-    ============================================================ -->
 <section>
 <h2 class="section-title">🎯 CENÁRIOS &amp; MATRIZ DE APORTE</h2>
 <div class="chart-wrapper"><canvas id="chart_scenarios"></canvas></div>
 <div class="chart-wrapper"><canvas id="chart_allocation"></canvas></div>
 </section>
-
-<!-- ============================================================
-    BACKTEST
-    ============================================================ -->
 <section>
-<h2 class="section-title">📊 BACKTEST — V13 (PERÍODO SELECIONÁVEL)</h2>
+<h2 class="section-title">📊 BACKTEST — V13 (CORRIGIDO)</h2>
 <div class="backtest-section">
 <div class="backtest-header">
 <div>
@@ -393,24 +342,12 @@ footer { background:var(--primary); border-top:2px solid var(--accent-blue); pad
 <div id="backtestResults"><div class="backtest-loading"><div class="spinner"></div><p>Carregando dados históricos (4h) + on-chain...</p></div></div>
 </div>
 </section>
-
-<!-- ============================================================
-    FOOTER
-    ============================================================ -->
 <footer><div class="footer-content"><div class="footer-section"><h4>📋 Metodologia V13</h4><p>Score institucional com histórico gráfico. Lógica de entrada diferenciada por regime, BOS/CHoCH, funding z-score, OI direcional. Período de backtest selecionável. Telegram ativo.</p><p><strong>Última atualização bem‑sucedida:</strong> <span id="live-update-time">--</span></p><p><strong>Status do Telegram:</strong> <span id="telegram-status-text">Conectado</span></p></div><div class="disclaimer"><strong>🔴 AVISO LEGAL</strong><br>Uso exclusivamente informativo. Não é recomendação de investimento.</div></div></footer>
 </div>
-
-<!-- ============================================================
-    BOTÃO FLUTUANTE — TESTAR TELEGRAM
-    ============================================================ -->
 <button class="telegram-test-btn" id="test-telegram-btn"><span id="test-btn-label">📨 Testar Alerta</span></button>
-
-<!-- ============================================================
-    JAVASCRIPT COMPLETO (CORRIGIDO: CONEXÕES RESTAURADAS E OTIMIZADO)
-    ============================================================ -->
 <script>
 // ================================================================
-// 0. CONFIGURAÇÕES GLOBAIS
+// CONFIGURAÇÕES GLOBAIS
 // ================================================================
 const TELEGRAM_TOKEN = '8670184440:AAFBfhFFTMnUWsgIFyRh0huBYbL-Q_vhT5k';
 const TELEGRAM_CHAT_ID = '1137196768';
@@ -459,7 +396,7 @@ let componentWeights = { trend: 0.25, momentum: 0.20, structure: 0.15, onchain: 
 let ema50History = [];
 
 // ================================================================
-// 0.1 HISTÓRICO DE SCORE PARA O GRÁFICO
+// HISTÓRICO DE SCORE (GRÁFICO)
 // ================================================================
 let scoreHistory = [];
 const MAX_SCORE_HISTORY = 2000;
@@ -597,7 +534,7 @@ function calculateKellySizingByRegime(regime) {
 }
 
 // ================================================================
-// REGIME CORRIGIDO
+// REGIME CORRIGIDO (com detecção correta de slope)
 // ================================================================
 function detectMarketRegimeFixed(price, ema50, ema50Prev, ema200, adx) {
     const slope = (ema50Prev !== undefined && ema50Prev > 0) ? (ema50 - ema50Prev) / ema50Prev : 0;
@@ -704,7 +641,7 @@ function loadWeightsV6() {
 }
 
 // ================================================================
-// MTF
+// MTF (CORRIGIDO: FALLBACK NEUTRO)
 // ================================================================
 async function fetchMTFData(symbol = 'BTCUSDT') {
     try {
@@ -751,7 +688,7 @@ function checkMTFAlignment(mtf, signal, price) {
 }
 
 // ================================================================
-// BOOK DEPTH
+// BOOK DEPTH (CORRIGIDO: NÃO BLOQUEIA O BACKTEST)
 // ================================================================
 async function fetchOrderBookDepth(symbol, limit = 20) {
     try {
@@ -790,7 +727,7 @@ function calculateBollingerBandWidth(candles, period = 20, mult = 2) {
 }
 
 // ================================================================
-// CONFLUÊNCIA WHALE
+// WHALE CONFLUENCE (CORRIGIDO: AGORA APLICA AO TAMANHO)
 // ================================================================
 function getWhaleConfluenceMultiplier(signal, whaleAction) {
     const whaleBullish = whaleAction === 'accumulating';
@@ -814,7 +751,7 @@ function getLiquidityRegime() {
 }
 
 // ================================================================
-// SUPORTE/RESISTÊNCIA DINÂMICO LIVE
+// SUPORTE/RESISTÊNCIA DINÂMICO
 // ================================================================
 function updateLiveSupportResistance() {
     if (candleHistory.length < 20) return;
@@ -874,7 +811,7 @@ function classifyOIRisk(oiDeltaPct, priceDeltaPct) {
 }
 
 // ================================================================
-// CONFIRMAÇÃO DE SINAL V13 (COM MELHORIAS)
+// CONFIRMAÇÃO DE SINAL V13 (CORRIGIDO)
 // ================================================================
 function getDynamicWeights(regime) { return regimeWeights[regime] || regimeWeights.BULL; }
 function getDynamicFilterWeights(regime) {
@@ -1248,8 +1185,20 @@ function getVolumeStats(candles) {
 }
 
 // ================================================================
-// SCORE INSTITUCIONAL (COM HISTÓRICO)
+// SCORE INSTITUCIONAL (COM ATUALIZAÇÃO DE REGIME EM TEMPO REAL)
 // ================================================================
+function refreshCurrentRegime(price, candleHistory) {
+    const closes = candleHistory.map(c => c.close);
+    const ema50 = calculateEMA(closes, 50) || price;
+    const ema200 = calculateEMA(closes, 200) || price;
+    const ema50Prev = ema50History.length >= 2 ? ema50History[ema50History.length - 2] : ema50;
+    const trend = getTrendStrength(candleHistory);
+    const regime = detectMarketRegimeFixed(price, ema50, ema50Prev, ema200, trend.adx || 25);
+    updateRegimeDisplay(regime);
+    currentRegime = regime;
+    return regime;
+}
+
 function computeScore(data) {
     const hist = alertLog.filter(t => t.win !== null);
     if (hist.length > 20) {
@@ -1355,7 +1304,7 @@ function updateScoreDisplay(scoreData) {
     document.getElementById('score-volume').textContent = components.volume;
     document.getElementById('score-oi').textContent = components.oi;
 
-    // Adicionar ao histórico do gráfico (com timestamp)
+    // Adicionar ao histórico do gráfico
     const now = Date.now();
     scoreHistory.push({ time: now, score: score });
     if (scoreHistory.length > MAX_SCORE_HISTORY) scoreHistory.shift();
@@ -1365,104 +1314,65 @@ function updateScoreDisplay(scoreData) {
 }
 
 // ================================================================
-// GRÁFICO DE SCORE (HISTÓRICO) – CORRIGIDO (SEM DATE ADAPTER)
+// GRÁFICO DE SCORE (PLUGIN LOCAL, NÃO GLOBAL)
 // ================================================================
+const thresholdPlugin = {
+    id: 'customThresholdLines',
+    beforeDraw: function(chart) {
+        const yScale = chart.scales.y;
+        if (!yScale) return;
+        const ctx = chart.ctx;
+        const y25 = yScale.getPixelForValue(25);
+        const y75 = yScale.getPixelForValue(75);
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(233,69,96,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(chart.chartArea.left, y25);
+        ctx.lineTo(chart.chartArea.right, y25);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,217,142,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(chart.chartArea.left, y75);
+        ctx.lineTo(chart.chartArea.right, y75);
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.fillStyle = 'rgba(233,69,96,0.7)';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('SHORT (25)', chart.chartArea.right - 80, y25 - 6);
+        ctx.fillStyle = 'rgba(0,217,142,0.7)';
+        ctx.fillText('LONG (75)', chart.chartArea.right - 80, y75 - 6);
+        ctx.restore();
+    }
+};
+
 function initScoreChart() {
     const canvas = document.getElementById('scoreHistoryChart');
     if (!canvas) return;
-
-    // Plugin para linhas de referência (registrado globalmente para evitar erro)
-    const thresholdPlugin = {
-        id: 'customThresholdLines',
-        beforeDraw: function(chart) {
-            const yScale = chart.scales.y;
-            if (!yScale) return;
-            const ctx = chart.ctx;
-            const y25 = yScale.getPixelForValue(25);
-            const y75 = yScale.getPixelForValue(75);
-            ctx.save();
-            ctx.setLineDash([6, 4]);
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = 'rgba(233,69,96,0.5)';
-            ctx.beginPath();
-            ctx.moveTo(chart.chartArea.left, y25);
-            ctx.lineTo(chart.chartArea.right, y25);
-            ctx.stroke();
-            ctx.strokeStyle = 'rgba(0,217,142,0.5)';
-            ctx.beginPath();
-            ctx.moveTo(chart.chartArea.left, y75);
-            ctx.lineTo(chart.chartArea.right, y75);
-            ctx.stroke();
-            ctx.restore();
-            ctx.save();
-            ctx.fillStyle = 'rgba(233,69,96,0.7)';
-            ctx.font = '10px sans-serif';
-            ctx.fillText('SHORT (25)', chart.chartArea.right - 80, y25 - 6);
-            ctx.fillStyle = 'rgba(0,217,142,0.7)';
-            ctx.fillText('LONG (75)', chart.chartArea.right - 80, y75 - 6);
-            ctx.restore();
-        }
-    };
-
-    // Registrar plugin globalmente (seguro)
-    Chart.register(thresholdPlugin);
-
+    // Plugin é passado apenas para esta instância, não registrado globalmente
     scoreChart = new Chart(canvas, {
         type: 'line',
-        data: {
-            datasets: [{
-                label: 'Score Institucional',
-                data: [],
-                borderColor: '#00b4d8',
-                backgroundColor: 'rgba(0,180,216,0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 1,
-                pointHoverRadius: 4,
-            }]
-        },
+        data: { datasets: [{ label: 'Score Institucional', data: [], borderColor: '#00b4d8',
+                backgroundColor: 'rgba(0,180,216,0.1)', borderWidth: 2, fill: true, tension: 0.3,
+                pointRadius: 1, pointHoverRadius: 4 }] },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) {
                             return 'Score: ' + context.parsed.y.toFixed(0);
-                        },
-                        title: function(items) {
-                            const d = new Date(items[0].parsed.x);
-                            return d.toLocaleString('pt-BR');
-                        }
-                    }
-                }
-            },
+                        }, title: function(items) { return new Date(items[0].parsed.x).toLocaleString(
+                            'pt-BR'); } } } },
             scales: {
-                x: {
-                    type: 'linear',
-                    grid: { color: 'rgba(44,62,80,0.3)' },
-                    ticks: {
-                        color: '#95a5a6',
-                        callback: function(value) {
-                            return new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                        },
-                        maxTicksLimit: 15,
-                        autoSkip: true,
-                    }
-                },
-                y: {
-                    min: 0,
-                    max: 100,
-                    grid: { color: 'rgba(44,62,80,0.3)' },
-                    ticks: { color: '#95a5a6' }
-                }
+                x: { type: 'linear', grid: { color: 'rgba(44,62,80,0.3)' }, ticks: { color: '#95a5a6',
+                        callback: function(value) { return new Date(value).toLocaleTimeString('pt-BR',
+                            { hour: '2-digit', minute: '2-digit' }); }, maxTicksLimit: 15,
+                        autoSkip: true } },
+                y: { min: 0, max: 100, grid: { color: 'rgba(44,62,80,0.3)' }, ticks: { color: '#95a5a6' } }
             },
-            elements: {
-                line: { tension: 0.3 }
-            }
-        }
+            elements: { line: { tension: 0.3 } }
+        },
+        plugins: [thresholdPlugin] // plugin local
     });
     updateScoreChart();
 }
@@ -1473,18 +1383,16 @@ function updateScoreChart() {
     const msMap = { '1h': 3600000, '6h': 21600000, '12h': 43200000, '24h': 86400000, '7d': 604800000 };
     const limit = msMap[currentScoreTimeframe] || 86400000;
     const cutoff = now - limit;
-    const filtered = scoreHistory.filter(p => p.time >= cutoff);
+    let filtered = scoreHistory.filter(p => p.time >= cutoff);
     const maxPoints = 500;
-    let data = filtered;
     if (filtered.length > maxPoints) {
         const step = Math.ceil(filtered.length / maxPoints);
-        data = filtered.filter((_, i) => i % step === 0);
+        filtered = filtered.filter((_, i) => i % step === 0);
     }
-    scoreChart.data.datasets[0].data = data.map(p => ({ x: p.time, y: p.score }));
+    scoreChart.data.datasets[0].data = filtered.map(p => ({ x: p.time, y: p.score }));
     scoreChart.update('none');
 }
 
-// Eventos dos botões de timeframe do gráfico de score
 document.addEventListener('click', function(e) {
     const btn = e.target.closest('#score-tf-buttons .tf-btn');
     if (!btn) return;
@@ -1497,7 +1405,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ================================================================
-// ALERTA EM TEMPO REAL V13 (COM RECONEXÃO DE WEBSOCKETS)
+// ALERTA EM TEMPO REAL (CORRIGIDO: REGIME ATUALIZADO ANTES DO GATE)
 // ================================================================
 async function checkAdditionalAlertsV13(score, components) {
     const now = Date.now();
@@ -1515,9 +1423,19 @@ async function checkAdditionalAlertsV13(score, components) {
         oiDelta: globalData.oiDelta || 0, volume: 0, avgVolume: 0,
         minerOutflow: 500, positionSize: 0.01, adx: 25
     };
+    // --- CORREÇÃO: atualiza o regime ANTES de qualquer decisão de sinal ---
+    refreshCurrentRegime(price, candleHistory);
+    const regimeLive = currentRegime;
+
+    // Sinal: prioriza regime-aware, fallback para score
+    const regSignalLive = getRegimeAwareSignal(data, regimeLive);
     let signal = null;
-    if (score >= 75) signal = 'LONG';
-    else if (score <= 25) signal = 'SHORT';
+    if (regSignalLive !== 'NEUTRAL') {
+        signal = regSignalLive;
+    } else {
+        if (score >= 75) signal = 'LONG';
+        else if (score <= 25) signal = 'SHORT';
+    }
     if (!signal) return;
 
     const mtfData = await fetchMTFData('BTCUSDT');
@@ -1546,11 +1464,6 @@ async function checkAdditionalAlertsV13(score, components) {
     data.priceDeltaPct = closesLive.length > 1 ? (price - closesLive[closesLive.length - 2]) / closesLive[closesLive
         .length - 2] * 100 : 0;
 
-    const regimeLive = detectMarketRegimeFixed(price, ema50Live, ema50PrevLive, calculateEMA(closesLive, 200) || price, data
-        .adx);
-    updateRegimeDisplay(regimeLive);
-    currentRegime = regimeLive;
-
     const side = signal === 'LONG' ? 'BUY' : 'SELL';
     const cluster = await checkClusterOrders('BTCUSDT', data.price, side);
 
@@ -1560,6 +1473,7 @@ async function checkAdditionalAlertsV13(score, components) {
         return;
     }
 
+    // Aplica a confluência de baleias ao tamanho da posição (corrigido)
     const whaleMult = getWhaleConfluenceMultiplier(signal, currentWhaleState);
 
     tradeHistory.push({ outcome: false, features: conf.scoreComponents || {} });
@@ -1572,6 +1486,8 @@ async function checkAdditionalAlertsV13(score, components) {
     let targets = generateScaledTargetsV8(price, stop, signal, conf.volatilityRegime || 'NORMAL', regime);
     let finalScore = score + conf.scoreBonus;
     finalScore = Math.min(100, Math.max(0, finalScore));
+    // Aplica o multiplicador de baleia ao tamanho sugerido na mensagem
+    const adjustedSize = whaleMult;
     const rationale =
         `Filtros V13: ${conf.score.toFixed(0)}/100 score. Regime: ${regime}. Vol: ${conf.volatilityRegime}. Whale confluence: ${whaleMult.toFixed(2)}x. MTF: ${conf.reasons[4]}`;
     await sendStructuredAlert(signal, finalScore, price, stop, targets, rationale, components);
@@ -1579,7 +1495,7 @@ async function checkAdditionalAlertsV13(score, components) {
 }
 
 // ================================================================
-// BACKTEST (MANTIDO)
+// BACKTEST V13 (CORRIGIDO: RSI/MACD PROGRESSIVOS, FUNDING HISTÓRICO)
 // ================================================================
 async function fetchOnChainSeriesForBacktest(candles4h) {
     if (!candles4h || candles4h.length < 2) return new Map();
@@ -1606,6 +1522,14 @@ async function fetchOnChainSeriesForBacktest(candles4h) {
     } catch (e) { console.warn('On-chain histórico indisponível, usando fallback neutro (1.0/1.0)'); }
     return map;
 }
+
+// Função auxiliar para construir séries progressivas de RSI/MACD (corrige bug de índice)
+function buildIndicatorSeries(closes) {
+    const rsiSlice = closes.map((_, idx) => calculateRSI(closes.slice(0, idx + 1)));
+    const macdSlice = closes.map((_, idx) => calculateMACD(closes.slice(0, idx + 1)) || 0);
+    return { rsiSlice, macdSlice };
+}
+
 let backtestRunning = false;
 async function runBacktest() {
     const container = document.getElementById('backtestResults');
@@ -1672,6 +1596,29 @@ async function runBacktest() {
         const onChainMap = await fetchOnChainSeriesForBacktest(dataset);
         console.log(`✅ On-chain carregado: ${onChainMap.size} dias`);
 
+        // Buscar funding histórico (corrige #4)
+        console.log('📥 Buscando funding histórico...');
+        const fundingMap = new Map();
+        try {
+            const r = await fetchWithTimeout(
+                `https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&startTime=${startTime}&endTime=${now}&limit=1000`,
+                10000);
+            if (r.ok) {
+                const data = await r.json();
+                data.forEach(item => { fundingMap.set(item.fundingTime, parseFloat(item.fundingRate)); });
+                console.log(`✅ Funding histórico carregado: ${fundingMap.size} registros`);
+            }
+        } catch (e) { console.warn('Funding histórico indisponível, filtro ficará neutro:', e); }
+
+        function getFundingAtTime(fundingMap, candleTimeMs) {
+            let closest = 0;
+            for (const [ts, rate] of fundingMap) {
+                if (ts <= candleTimeMs) closest = rate;
+                else break;
+            }
+            return closest;
+        }
+
         const initialCapital = 10000;
         let balance = initialCapital,
             peak = balance,
@@ -1715,6 +1662,13 @@ async function runBacktest() {
             const macdVal = calculateMACD(closes) || 0;
             const obvVal = calculateOBV(dataset.slice(0, i + 1));
 
+            // --- CORREÇÃO #3: séries progressivas de RSI/MACD ---
+            const { rsiSlice, macdSlice } = buildIndicatorSeries(closes);
+            const obvSlice = dataset.slice(0, i + 1).map((_, idx) => calculateOBV(dataset.slice(0, idx + 1)));
+
+            // --- CORREÇÃO #4: funding histórico real ---
+            const fundingRate = getFundingAtTime(fundingMap, dataset[i].time * 1000);
+
             const simData = {
                 price: price,
                 ema50: ema50,
@@ -1733,7 +1687,8 @@ async function runBacktest() {
                 fvgZones: [{ low: Math.min(...dataset.slice(Math.max(0, i - 20), i + 1).map(d => d.low)), high: Math
                         .max(...dataset.slice(Math.max(0, i - 20), i + 1).map(d => d.high))
                     }],
-                ema50Prev: ema50Prev
+                ema50Prev: ema50Prev,
+                fundingRate: fundingRate // agora real
             };
             const candleDay = Math.floor(new Date(dataset[i].date).getTime() / 1000 / 86400) * 86400;
             const oc = onChainMap.get(candleDay) || { mvrv: 1.0, sopr: 1.0 };
@@ -1761,7 +1716,7 @@ async function runBacktest() {
                 macd: macdVal,
                 macdSignal: 0,
                 volumeRatio: simData.volumeRel,
-                fundingRate: 0,
+                fundingRate: fundingRate,
                 mvrv: oc.mvrv,
                 sopr: oc.sopr,
                 oiDelta: 0,
@@ -1776,9 +1731,6 @@ async function runBacktest() {
                 ema50Prev: ema50Prev,
                 priceDeltaPct: i > 0 ? (price - dataset[i - 1].close) / dataset[i - 1].close * 100 : 0
             };
-            const rsiSlice = closes.map(c => calculateRSI(closes.slice(0, i + 1)));
-            const macdSlice = closes.map(c => calculateMACD(closes.slice(0, i + 1)) || 0);
-            const obvSlice = dataset.slice(0, i + 1).map((_, idx) => calculateOBV(dataset.slice(0, idx + 1)));
 
             const mtfDataPoint = buildHistoricalMTF(dataset, i);
             const clusterData = { cluster: false, volume: 0 };
@@ -1941,7 +1893,7 @@ async function runBacktest() {
                 `<h4 style="color:var(--text-light);margin:20px 0 10px 0;">📋 Histórico de Trades V13</h4><div class="backtest-table-wrap"><table><thead><tr><th>Entrada</th><th>Saída</th><th>Tipo</th><th>Preço Entrada</th><th>Preço Saída</th><th>PnL %</th><th>Dias</th><th>Motivo</th><th>Regime</th><th>Confirmação</th></tr></thead><tbody>${trades.slice().reverse().map(t=>`<tr class="${t.pnlUsd>0?'row-win':'row-loss'}"><td>${t.entryDate}</td><td>${t.exitDate}</td><td>${t.type}</td><td>$${t.entryPrice.toFixed(0)}</td><td>$${t.exitPrice.toFixed(0)}</td><td style="color:${t.pnlUsd>0?'var(--accent-green)':'var(--accent-red)'}">${t.pnlPct.toFixed(2)}%</td><td>${t.daysOpen.toFixed(1)}</td><td>${t.exitReason}</td><td>${t.regime||'N/A'}</td><td>${t.confScore?t.confScore.toFixed(0):'N/A'}</td></tr>`).join('')}</tbody></table></div>`;
         }
         html +=
-            `<p style="color:var(--text-muted);font-size:.85em;margin-top:12px;">Período: ${dataset[0]?.date} — ${dataset[dataset.length-1]?.date} (${dataset.length} candles 4h) • ${days} dias • On-chain real • Regime-aware • BOS/CHoCH • Funding z-score • OI direcional.</p>`;
+            `<p style="color:var(--text-muted);font-size:.85em;margin-top:12px;">Período: ${dataset[0]?.date} — ${dataset[dataset.length-1]?.date} (${dataset.length} candles 4h) • ${days} dias • On-chain real • Funding histórico real • RSI/MACD progressivos • Regime-aware • BOS/CHoCH • Funding z-score • OI direcional.</p>`;
         container.innerHTML = html;
     } catch (err) {
         console.error('Backtest error:', err);
@@ -2016,7 +1968,7 @@ function initWhaleFlowChart() {
 }
 
 // ================================================================
-// CANDLESTICK WEBSOCKETS E FUNÇÕES (COM RECONEXÃO AUTOMÁTICA)
+// CANDLESTICK WEBSOCKETS (COM RECONEXÃO AUTOMÁTICA)
 // ================================================================
 function updateTimestamp() {
     const ts = getCurrentTimestamp();
