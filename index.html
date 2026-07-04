@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <title>Dashboard Institucional — V2 Engine (Comitê)</title>
+    <title>Dashboard Institucional — V2 Engine</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
@@ -272,61 +272,13 @@
             .container { padding: 16px; } 
             .score-value { font-size: 3.5rem; } 
         }
-
-        /* ===== NOVOS ESTILOS PARA O PAINEL DE FORÇA ===== */
-        #signalStrengthPanel {
-            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 16px;
-            margin: 12px 0 32px 0;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-        }
-        .mtf-badge {
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-        .mtf-bull { background: rgba(0,230,118,0.15); color: #00e676; border: 1px solid rgba(0,230,118,0.3); }
-        .mtf-bear { background: rgba(255,23,68,0.15); color: #ff1744; border: 1px solid rgba(255,23,68,0.3); }
-        .mtf-neutral { background: rgba(139,148,158,0.15); color: #8b949e; border: 1px solid rgba(139,148,158,0.3); }
-        .reason-tag {
-            padding: 2px 7px;
-            border-radius: 4px;
-            font-size: 10px;
-            background: rgba(56,139,253,0.12);
-            color: #58a6ff;
-            border: 1px solid rgba(56,139,253,0.2);
-        }
-        .reason-tag.negative {
-            background: rgba(255,82,82,0.12);
-            color: #ff5252;
-            border-color: rgba(255,82,82,0.2);
-        }
-        .reason-tag.positive {
-            background: rgba(0,230,118,0.12);
-            color: #00e676;
-            border-color: rgba(0,230,118,0.2);
-        }
-        .orderbook-mini {
-            font-size: 10px;
-            font-family: var(--font-mono);
-        }
-        .orderbook-mini .ask { color: #ff5252; }
-        .orderbook-mini .bid { color: #00e676; }
-        .orderbook-mini .spread { color: #ffc107; text-align: center; padding: 2px 0; font-size: 9px; }
-        .orderbook-mini .bar-bg { width: 50px; height: 8px; background: rgba(255,255,255,0.05); border-radius: 2px; display: inline-block; vertical-align: middle; }
-        .orderbook-mini .bar-fill { height: 100%; border-radius: 2px; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <div class="header-content">
-                <h1 class="header-title">📊 RELATÓRIO INSTITUCIONAL — Score + Alertas (V2 SMC Engine + Comitê)</h1>
+                <h1 class="header-title">📊 RELATÓRIO INSTITUCIONAL — Score + Alertas (V2 SMC Engine)</h1>
                 <div class="header-meta">
                     <div class="badge" id="header-timestamp">📅 Carregando...</div>
                     <div class="badge sentiment-bearish" id="header-sentiment">⚠️ SENTIMENTO: PESSIMISTA</div>
@@ -362,42 +314,6 @@
                     <div class="score-detail-item"><span class="label">OI Delta</span> <span class="value" id="score-oi">--</span></div>
                 </div>
                 <div id="block-reason" style="margin-top:10px;font-weight:700;color:var(--accent-red);display:none;"></div>
-            </div>
-        </section>
-
-        <!-- PAINEL DE FORÇA DO SINAL (NOVO) -->
-        <section>
-            <div id="signalStrengthPanel">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                    <span style="color:#8b949e;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Força do Sinal</span>
-                    <span id="scoreLabel" style="font-size:13px;font-weight:800;padding:3px 10px;border-radius:20px;">NEUTRO</span>
-                </div>
-                <!-- Gauge Bar -->
-                <div style="position:relative;height:28px;background:#21262d;border-radius:14px;overflow:hidden;margin-bottom:10px;">
-                    <div id="scoreBar" style="height:100%;width:50%;border-radius:14px;transition:width 0.6s ease, background 0.6s ease;background:linear-gradient(90deg,#ff1744,#ffc107,#00e676);"></div>
-                    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-weight:800;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,0.8);">
-                        <span id="scoreValue">50</span>/100
-                    </div>
-                    <div style="position:absolute;left:20%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.15);"></div>
-                    <div style="position:absolute;left:80%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.15);"></div>
-                </div>
-                <!-- MTF Badges -->
-                <div style="display:flex;gap:6px;margin-bottom:10px;" id="mtfBadges"></div>
-                <!-- Razões -->
-                <div id="scoreReasons" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
-                <!-- Funding e ADX -->
-                <div style="margin-top:10px;padding-top:10px;border-top:1px solid #21262d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                    <span style="color:#8b949e;font-size:11px;">Funding Rate</span>
-                    <span id="fundingDisplay" style="font-size:12px;font-weight:700;">--</span>
-                    <span style="color:#8b949e;font-size:11px;">ADX</span>
-                    <span id="adxDisplay" style="font-size:12px;font-weight:700;">--</span>
-                </div>
-                <!-- Order Book mini -->
-                <div id="orderbookMini" style="margin-top:8px;padding-top:8px;border-top:1px solid #21262d;font-size:10px;font-family:var(--font-mono);"></div>
-                <!-- Sinal principal -->
-                <div id="mainSignal" style="margin-top:12px;padding:10px;background:#0d1117;border-radius:8px;border:1px solid #30363d;text-align:center;">
-                    <div style="color:#8b949e;font-size:14px;">Aguardando dados...</div>
-                </div>
             </div>
         </section>
 
@@ -551,8 +467,8 @@
         <footer>
             <div class="footer-content">
                 <div class="footer-section">
-                    <h4>📋 Metodologia V2 + Comitê</h4>
-                    <p>Motor Institucional SMC + MTF + Orderflow (Liquidações) + Macro Filter + ADX + Divergência RSI + Order Book Imbalance + Fear & Greed. Gestão de Risco por ATR e Trailing Stop Estrutural. Kelly Criterion para sizing.</p>
+                    <h4>📋 Metodologia V2</h4>
+                    <p>Motor Institucional SMC + MTF + Orderflow (Liquidações) + Macro Filter. Gestão de Risco por ATR e Trailing Stop Estrutural. Kelly Criterion para sizing.</p>
                     <p><strong>Última atualização bem‑sucedida:</strong> <span id="live-update-time">--</span></p>
                     <p><strong>Status do Telegram:</strong> <span id="telegram-status-text">Conectado</span></p>
                 </div>
@@ -565,7 +481,7 @@
 
     <script>
         // ================================================================
-        // 0. CONFIGURAÇÃO & STATE (mantido)
+        // 0. CONFIGURAÇÃO & STATE
         // ================================================================
         const TELEGRAM_TOKEN = '8670184440:AAFBfhFFTMnUWsgIFyRh0huBYbL-Q_vhT5k';
         const TELEGRAM_CHAT_ID = '1137196768';
@@ -645,7 +561,7 @@
         }
 
         // ================================================================
-        // 1. TELEGRAM & ALERTS (mantido)
+        // 1. TELEGRAM & ALERTS
         // ================================================================
         async function sendTelegramAlert(message) {
             try {
@@ -691,593 +607,16 @@
         }
 
         // ================================================================
-        // 2. NOVAS FUNÇÕES DO COMITÊ
-        // ================================================================
-        // 2.1 ADX Filter
-        function calculateADX(candles, period = 14) {
-            if (candles.length < period * 2) return { adx: 0, plusDI: 0, minusDI: 0 };
-            
-            let plusDM = [], minusDM = [], tr = [];
-            for (let i = 1; i < candles.length; i++) {
-                const highDiff = candles[i].high - candles[i-1].high;
-                const lowDiff = candles[i-1].low - candles[i].low;
-                plusDM.push(highDiff > lowDiff && highDiff > 0 ? highDiff : 0);
-                minusDM.push(lowDiff > highDiff && lowDiff > 0 ? lowDiff : 0);
-                tr.push(Math.max(
-                    candles[i].high - candles[i].low,
-                    Math.abs(candles[i].high - candles[i-1].close),
-                    Math.abs(candles[i].low - candles[i-1].close)
-                ));
-            }
-            
-            const smooth = (arr, p) => {
-                let sum = arr.slice(0, p).reduce((a,b) => a+b, 0);
-                let result = [sum];
-                for (let i = p; i < arr.length; i++) {
-                    sum = sum - sum/p + arr[i];
-                    result.push(sum);
-                }
-                return result;
-            };
-            
-            const sTR = smooth(tr, period);
-            const sPDM = smooth(plusDM, period);
-            const sMDM = smooth(minusDM, period);
-            
-            const plusDI = sPDM.map((v, i) => sTR[i] ? (v / sTR[i]) * 100 : 0);
-            const minusDI = sMDM.map((v, i) => sTR[i] ? (v / sTR[i]) * 100 : 0);
-            
-            let dx = plusDI.map((p, i) => {
-                const sum = p + minusDI[i];
-                return sum ? (Math.abs(p - minusDI[i]) / sum) * 100 : 0;
-            });
-            
-            let adx = [0];
-            for (let i = 1; i < dx.length; i++) {
-                adx.push((adx[i-1] * (period - 1) + dx[i]) / period);
-            }
-            
-            const last = adx.length - 1;
-            return { adx: adx[last], plusDI: plusDI[last], minusDI: minusDI[last] };
-        }
-
-        function adxFilter(candles) {
-            const { adx, plusDI, minusDI } = calculateADX(candles);
-            if (adx < 20) return { pass: false, reason: 'MERCADO LATERAL (ADX < 20)', adx };
-            if (adx > 55) return { pass: false, reason: 'SOBRE-EXTENSÃO (ADX > 55)', adx };
-            return { pass: true, trend: plusDI > minusDI ? 'ALTA' : 'BAIXA', adx, plusDI, minusDI };
-        }
-
-        // 2.2 MTF Confluence
-        async function getMTFConfluence(symbol) {
-            const timeframes = ['15m', '1h', '4h'];
-            const directions = [];
-            
-            for (const tf of timeframes) {
-                try {
-                    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=50`;
-                    const resp = await fetch(url);
-                    const data = await resp.json();
-                    const candles = data.map(k => ({
-                        time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4], volume: +k[5]
-                    }));
-                    
-                    const closes = candles.map(c => c.close);
-                    const ema20 = calcEMA(closes, 20);
-                    const ema50 = calcEMA(closes, 50);
-                    const last = candles.length - 1;
-                    
-                    if (ema20[last] > ema50[last] && candles[last].close > ema20[last]) {
-                        directions.push({ tf, dir: 'BULL' });
-                    } else if (ema20[last] < ema50[last] && candles[last].close < ema20[last]) {
-                        directions.push({ tf, dir: 'BEAR' });
-                    } else {
-                        directions.push({ tf, dir: 'NEUTRO' });
-                    }
-                } catch(e) {
-                    directions.push({ tf, dir: 'ERROR' });
-                }
-            }
-            
-            const bulls = directions.filter(d => d.dir === 'BULL').length;
-            const bears = directions.filter(d => d.dir === 'BEAR').length;
-            
-            return {
-                directions,
-                score: bulls - bears,
-                confluencia: Math.max(bulls, bears) === 3 ? 'FORTE' : Math.max(bulls, bears) === 2 ? 'MODERADA' : 'FRACA',
-                alinhado: Math.max(bulls, bears) >= 2
-            };
-        }
-
-        function calcEMA(data, period) {
-            const k = 2 / (period + 1);
-            let ema = [data[0]];
-            for (let i = 1; i < data.length; i++) {
-                ema.push(data[i] * k + ema[i-1] * (1 - k));
-            }
-            return ema;
-        }
-
-        // 2.3 RSI Divergence
-        function detectRSIDivergence(candles, rsiValues, lookback = 5) {
-            if (candles.length < lookback * 2 + 1) return null;
-            
-            const recentCandles = candles.slice(-lookback * 2);
-            const recentRSI = rsiValues.slice(-lookback * 2);
-            
-            // Bottoms
-            let bottoms = [];
-            for (let i = lookback; i < recentCandles.length; i++) {
-                const window = recentCandles.slice(i - lookback, i + 1);
-                const minIdx = window.findIndex(c => c.low === Math.min(...window.map(w => w.low)));
-                if (minIdx === Math.floor(lookback / 2)) {
-                    bottoms.push({ priceIdx: i - lookback + minIdx, low: window[minIdx].low, rsi: recentRSI[i - lookback + minIdx] });
-                }
-            }
-            
-            if (bottoms.length >= 2) {
-                const last = bottoms[bottoms.length - 1];
-                const prev = bottoms[bottoms.length - 2];
-                if (last.low < prev.low && last.rsi > prev.rsi && last.rsi < 40) {
-                    return { type: 'BULLISH_DIVERGENCE', strength: Math.min((last.rsi - prev.rsi) * 2, 100).toFixed(0) };
-                }
-            }
-            
-            // Tops
-            let tops = [];
-            for (let i = lookback; i < recentCandles.length; i++) {
-                const window = recentCandles.slice(i - lookback, i + 1);
-                const maxIdx = window.findIndex(c => c.high === Math.max(...window.map(w => w.high)));
-                if (maxIdx === Math.floor(lookback / 2)) {
-                    tops.push({ priceIdx: i - lookback + maxIdx, high: window[maxIdx].high, rsi: recentRSI[i - lookback + maxIdx] });
-                }
-            }
-            
-            if (tops.length >= 2) {
-                const lastTop = tops[tops.length - 1];
-                const prevTop = tops[tops.length - 2];
-                if (lastTop.high > prevTop.high && lastTop.rsi < prevTop.rsi && lastTop.rsi > 60) {
-                    return { type: 'BEARISH_DIVERGENCE', strength: Math.min((prevTop.rsi - lastTop.rsi) * 2, 100).toFixed(0) };
-                }
-            }
-            
-            return null;
-        }
-
-        // 2.4 Signal Strength Scorer
-        function calculateSignalScore(indicators) {
-            let score = 50;
-            let reasons = [];
-            
-            if (indicators.ema20 > indicators.ema50 && indicators.close > indicators.ema20) {
-                score += 15; reasons.push('EMA Alinhado Alta');
-            } else if (indicators.ema20 < indicators.ema50 && indicators.close < indicators.ema20) {
-                score -= 15; reasons.push('EMA Alinhado Baixa');
-            }
-            
-            if (indicators.rsi > 40 && indicators.rsi < 60) { score += 10; reasons.push('RSI Neutro-Favorável'); }
-            if (indicators.rsi < 30) { score += 5; reasons.push('RSI Sobrevenda'); }
-            if (indicators.rsi > 70) { score -= 5; reasons.push('RSI Sobrecompra'); }
-            
-            if (indicators.adx > 25 && indicators.adx < 50) { score += 12; reasons.push('ADX Tendência Forte'); }
-            if (indicators.adx < 20) { score -= 12; reasons.push('ADX Sem Tendência'); }
-            
-            if (indicators.volumeRatio > 1.5) { score += 10; reasons.push('Volume Alto'); }
-            else if (indicators.volumeRatio < 0.7) { score -= 10; reasons.push('Volume Baixo'); }
-            
-            if (indicators.divergence === 'BULLISH_DIVERGENCE') { score += 15; reasons.push('Divergência Bullish'); }
-            if (indicators.divergence === 'BEARISH_DIVERGENCE') { score -= 15; reasons.push('Divergência Bearish'); }
-            
-            if (indicators.mtfScore >= 2) { score += 12; reasons.push('MTF Confluência Forte'); }
-            else if (indicators.mtfScore >= 1) { score += 6; reasons.push('MTF Confluência Moderada'); }
-            else if (indicators.mtfScore <= -2) { score -= 12; reasons.push('MTF Contra Tendência'); }
-            
-            if (indicators.fundingRate !== undefined) {
-                if (indicators.fundingRate < -0.01 && score > 50) { score += 8; reasons.push('Funding Favorável Long'); }
-                if (indicators.fundingRate > 0.01 && score < 50) { score += 8; reasons.push('Funding Favorável Short'); }
-                if (indicators.fundingRate > 0.05 && score > 50) { score -= 8; reasons.push('Funding Perigoso Long'); }
-            }
-            
-            if (indicators.macdHist > 0 && indicators.macdHist > indicators.macdHistPrev) { score += 8; reasons.push('MACD Momentum Alta'); }
-            if (indicators.macdHist < 0 && indicators.macdHist < indicators.macdHistPrev) { score -= 8; reasons.push('MACD Momentum Baixa'); }
-            
-            // Filtro de lateralidade (ADX) já incluso no score, mas também via bloqueio externo
-            
-            score = Math.max(0, Math.min(100, score));
-            
-            let label = 'NEUTRO';
-            if (score >= 80) label = 'MUITO FORTE';
-            else if (score >= 65) label = 'FORTE';
-            else if (score >= 55) label = 'MODERADO';
-            else if (score <= 20) label = 'MUITO FORTE CONTRA';
-            else if (score <= 35) label = 'FORTE CONTRA';
-            else if (score <= 45) label = 'MODERADO CONTRA';
-            
-            return { score, label, reasons, direction: score >= 50 ? 'LONG' : 'SHORT' };
-        }
-
-        // 2.5 Funding Rate
-        async function getFundingRate(symbol = 'BTCUSDT') {
-            try {
-                const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&limit=1`;
-                const resp = await fetch(url);
-                const data = await resp.json();
-                return {
-                    rate: parseFloat(data[0].fundingRate),
-                    time: data[0].fundingTime,
-                    interpretacao: parseFloat(data[0].fundingRate) > 0.01 ? 'LONGS SOBRE-APOSTADOS' :
-                                  parseFloat(data[0].fundingRate) < -0.01 ? 'SHORTS SOBRE-APOSTADOS' :
-                                  'EQUILIBRADO'
-                };
-            } catch(e) {
-                return { rate: 0, time: null, interpretacao: 'N/A' };
-            }
-        }
-
-        function fundingFilter(fundingData, signalDirection) {
-            const r = fundingData.rate;
-            if (signalDirection === 'LONG' && r > 0.05) return { pass: false, reason: 'Funding muito alto para LONG' };
-            if (signalDirection === 'SHORT' && r < -0.05) return { pass: false, reason: 'Funding muito negativo para SHORT' };
-            if (signalDirection === 'SHORT' && r > 0.03) return { pass: true, bonus: 'Contrarian: longs sobre-apostados' };
-            if (signalDirection === 'LONG' && r < -0.03) return { pass: true, bonus: 'Contrarian: shorts sobre-apostados' };
-            return { pass: true };
-        }
-
-        // 2.6 Trailing Stop com ATR
-        function calculateATR(candles, period = 14) {
-            let trs = [];
-            for (let i = 1; i < candles.length; i++) {
-                trs.push(Math.max(
-                    candles[i].high - candles[i].low,
-                    Math.abs(candles[i].high - candles[i-1].close),
-                    Math.abs(candles[i].low - candles[i-1].close)
-                ));
-            }
-            return trs.slice(-period).reduce((a,b) => a+b, 0) / period;
-        }
-
-        function generateTrailingStopParams(candles, entryPrice, direction) {
-            const atr = calculateATR(candles);
-            if (direction === 'LONG') {
-                return {
-                    stopLoss: entryPrice - (atr * 1.5),
-                    tp1: entryPrice + (atr * 2),
-                    tp2: entryPrice + (atr * 3.5),
-                    tp3: entryPrice + (atr * 5.5),
-                    trailingActivation: entryPrice + (atr * 3),
-                    trailingDistance: atr * 1.2,
-                    atr: atr
-                };
-            } else {
-                return {
-                    stopLoss: entryPrice + (atr * 1.5),
-                    tp1: entryPrice - (atr * 2),
-                    tp2: entryPrice - (atr * 3.5),
-                    tp3: entryPrice - (atr * 5.5),
-                    trailingActivation: entryPrice - (atr * 3),
-                    trailingDistance: atr * 1.2,
-                    atr: atr
-                };
-            }
-        }
-
-        function formatTrailingHTML(params, direction) {
-            const color = direction === 'LONG' ? '#00e676' : '#ff1744';
-            return `
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;text-align:left;">
-                    <span style="color:#888;">Stop Loss:</span><span style="color:#ff5252;font-weight:700;">$${params.stopLoss.toFixed(2)}</span>
-                    <span style="color:#888;">TP1 (50%):</span><span style="color:${color};font-weight:600;">$${params.tp1.toFixed(2)}</span>
-                    <span style="color:#888;">TP2 (30%):</span><span style="color:${color};font-weight:600;">$${params.tp2.toFixed(2)}</span>
-                    <span style="color:#888;">TP3 (20%):</span><span style="color:${color};font-weight:600;">$${params.tp3.toFixed(2)}</span>
-                    <span style="color:#888;">Trailing Ativa:</span><span style="color:#ffc107;">$${params.trailingActivation.toFixed(2)}</span>
-                    <span style="color:#888;">Trailing Dist:</span><span style="color:#ffc107;">$${params.trailingDistance.toFixed(2)}</span>
-                    <span style="color:#888;">ATR:</span><span style="color:#aaa;">$${params.atr.toFixed(2)}</span>
-                </div>
-            `;
-        }
-
-        // 2.7 Order Book Imbalance
-        async function getOrderBook(symbol = 'BTCUSDT', limit = 10) {
-            try {
-                const r = await fetch(`https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=${limit}`);
-                const d = await r.json();
-                const bidTotal = d.bids.reduce((s, b) => s + parseFloat(b[1]) * parseFloat(b[0]), 0);
-                const askTotal = d.asks.reduce((s, a) => s + parseFloat(a[1]) * parseFloat(a[0]), 0);
-                return {
-                    bids: d.bids.slice(0, 5).map(b => ({ price: +b[0], qty: +b[1] })),
-                    asks: d.asks.slice(0, 5).map(a => ({ price: +a[0], qty: +a[1] })),
-                    bidTotal, askTotal,
-                    imbalance: ((bidTotal - askTotal) / (bidTotal + askTotal) * 100).toFixed(2)
-                };
-            } catch(e) {
-                return null;
-            }
-        }
-
-        function orderBookFilter(obData, signalDirection) {
-            if (!obData) return { pass: true, reason: 'Sem dados orderbook' };
-            const imbalance = parseFloat(obData.imbalance);
-            if (signalDirection === 'LONG') {
-                if (imbalance < -15) return { pass: false, reason: `OrderBook contra LONG (imbalance: ${imbalance}%)` };
-                if (imbalance > 10) return { pass: true, bonus: `OrderBook favorável LONG (imbalance: ${imbalance}%)` };
-            }
-            if (signalDirection === 'SHORT') {
-                if (imbalance > 15) return { pass: false, reason: `OrderBook contra SHORT (imbalance: ${imbalance}%)` };
-                if (imbalance < -10) return { pass: true, bonus: `OrderBook favorável SHORT (imbalance: ${imbalance}%)` };
-            }
-            return { pass: true, reason: `OrderBook neutro (imbalance: ${imbalance}%)` };
-        }
-
-        function renderMiniOrderBook(obData) {
-            if (!obData) return '<span style="color:#8b949e;">N/A</span>';
-            const maxQty = Math.max(...obData.bids.map(b=>b.qty), ...obData.asks.map(a=>a.qty));
-            const bar = (qty) => (qty/maxQty*100).toFixed(0);
-            
-            let html = '<div class="orderbook-mini">';
-            for (let i = obData.asks.length - 1; i >= 0; i--) {
-                const a = obData.asks[i];
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;"><span class="ask">${a.price.toFixed(2)}</span><span style="color:#8b949e;">${a.qty.toFixed(4)}</span><div class="bar-bg"><div class="bar-fill" style="width:${bar(a.qty)}%;background:#ff5252;"></div></div></div>`;
-            }
-            const spread = ((obData.asks[0].price - obData.bids[0].price) / obData.bids[0].price * 100).toFixed(3);
-            html += `<div class="spread">Spread: ${spread}%</div>`;
-            for (const b of obData.bids) {
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;"><span class="bid">${b.price.toFixed(2)}</span><span style="color:#8b949e;">${b.qty.toFixed(4)}</span><div class="bar-bg"><div class="bar-fill" style="width:${bar(b.qty)}%;background:#00e676;"></div></div></div>`;
-            }
-            html += '</div>';
-            return html;
-        }
-
-        // 2.8 Fear & Greed
-        async function getFearGreed() {
-            try {
-                const r = await fetch('https://api.alternative.me/fng/?limit=1');
-                const d = await r.json();
-                const v = parseInt(d.data[0].value);
-                return {
-                    value: v,
-                    classification: d.data[0].value_classification,
-                    color: v < 25 ? '#ff1744' : v < 45 ? '#ff9800' : v < 55 ? '#ffc107' : v < 75 ? '#8bc34a' : '#00e676'
-                };
-            } catch(e) {
-                return null;
-            }
-        }
-
-        function fearGreedFilter(fgData, signalDirection) {
-            if (!fgData) return { pass: true, multiplier: 1 };
-            const v = fgData.value;
-            let multiplier = 1;
-            let reason = '';
-            
-            if (v < 20 && signalDirection === 'LONG') { multiplier = 1.3; reason = 'Extreme Fear — oportunidade contrarian LONG'; }
-            if (v > 80 && signalDirection === 'SHORT') { multiplier = 1.3; reason = 'Extreme Greed — oportunidade contrarian SHORT'; }
-            if (v >= 40 && v <= 60) { multiplier = 1; reason = 'Sentimento neutro — sem ajuste'; }
-            if (v < 15 && signalDirection === 'SHORT') { multiplier = 0.5; reason = 'Extreme Fear — reduzir SHORT'; }
-            if (v > 85 && signalDirection === 'LONG') { multiplier = 0.5; reason = 'Extreme Greed — reduzir LONG'; }
-            
-            return { pass: true, multiplier, reason, value: v, classification: fgData.classification };
-        }
-
-        // 2.9 APIs helper
-        const APIS = {
-            price: async (symbol = 'BTCUSDT') => {
-                try {
-                    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-                    const d = await r.json();
-                    return { price: parseFloat(d.price), source: 'Binance Spot', symbol };
-                } catch(e) {
-                    try {
-                        const coin = symbol.replace('USDT','').toLowerCase();
-                        const r2 = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coin}&vs_currencies=usd`);
-                        const d2 = await r2.json();
-                        const key = Object.keys(d2)[0];
-                        return { price: d2[key].usd, source: 'CoinGecko', symbol };
-                    } catch(e2) { return null; }
-                }
-            },
-            klines: async (symbol = 'BTCUSDT', interval = '15m', limit = 100) => {
-                try {
-                    const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
-                    const d = await r.json();
-                    return d.map(k => ({
-                        time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4], volume: +k[5], closeTime: k[6]
-                    }));
-                } catch(e) { return []; }
-            }
-        };
-
-        // 2.10 Painel Visual
-        function updateStrengthPanel(scoreData, mtfData, fundingData, adxData, obData, fgData) {
-            // Score bar
-            const bar = document.getElementById('scoreBar');
-            const val = document.getElementById('scoreValue');
-            const label = document.getElementById('scoreLabel');
-            
-            bar.style.width = scoreData.score + '%';
-            val.textContent = scoreData.score;
-            
-            const colors = {
-                'MUITO FORTE': { bg: 'rgba(0,230,118,0.2)', color: '#00e676', border: '#00e676' },
-                'FORTE': { bg: 'rgba(0,200,83,0.15)', color: '#00c853', border: '#00c853' },
-                'MODERADO': { bg: 'rgba(255,193,7,0.15)', color: '#ffc107', border: '#ffc107' },
-                'NEUTRO': { bg: 'rgba(139,148,158,0.15)', color: '#8b949e', border: '#8b949e' },
-                'MODERADO CONTRA': { bg: 'rgba(255,152,0,0.15)', color: '#ff9800', border: '#ff9800' },
-                'FORTE CONTRA': { bg: 'rgba(255,82,82,0.15)', color: '#ff5252', border: '#ff5252' },
-                'MUITO FORTE CONTRA': { bg: 'rgba(255,23,68,0.2)', color: '#ff1744', border: '#ff1744' }
-            };
-            
-            const c = colors[scoreData.label] || colors['NEUTRO'];
-            label.style.background = c.bg;
-            label.style.color = c.color;
-            label.style.border = `1px solid ${c.border}`;
-            label.textContent = scoreData.label;
-            
-            // MTF
-            const mtfContainer = document.getElementById('mtfBadges');
-            if (mtfData && mtfData.directions) {
-                mtfContainer.innerHTML = mtfData.directions.map(d => {
-                    const cls = d.dir === 'BULL' ? 'mtf-bull' : d.dir === 'BEAR' ? 'mtf-bear' : 'mtf-neutral';
-                    return `<span class="mtf-badge ${cls}">${d.tf} ${d.dir}</span>`;
-                }).join('');
-            }
-            
-            // Reasons
-            const reasonsContainer = document.getElementById('scoreReasons');
-            reasonsContainer.innerHTML = scoreData.reasons.map(r => {
-                const cls = r.includes('Contra') || r.includes('Baixo') || r.includes('Sem') || r.includes('Sobrecompra') || r.includes('Perigoso') ? 'negative' : 'positive';
-                return `<span class="reason-tag ${cls}">${r}</span>`;
-            }).join('');
-            
-            // Funding
-            const fundEl = document.getElementById('fundingDisplay');
-            if (fundingData && fundingData.rate !== undefined) {
-                const fColor = fundingData.rate > 0.01 ? '#ff5252' : fundingData.rate < -0.01 ? '#00e676' : '#ffc107';
-                fundEl.style.color = fColor;
-                fundEl.textContent = `${(fundingData.rate * 100).toFixed(4)}% — ${fundingData.interpretacao}`;
-            }
-            
-            // ADX
-            const adxEl = document.getElementById('adxDisplay');
-            if (adxData) {
-                const aColor = adxData.adx < 20 ? '#ff5252' : adxData.adx > 50 ? '#ff9800' : '#00e676';
-                adxEl.style.color = aColor;
-                adxEl.textContent = `${adxData.adx.toFixed(1)} ${adxData.adx < 20 ? '(Sem tendência)' : adxData.trend || '(Tendência)'}`;
-            }
-            
-            // Order Book
-            const obContainer = document.getElementById('orderbookMini');
-            if (obData) obContainer.innerHTML = renderMiniOrderBook(obData);
-        }
-
-        // ================================================================
-        // 3. MAIN SIGNAL ENGINE (NOVA)
-        // ================================================================
-        async function runSignalEngine() {
-            const symbol = 'BTCUSDT';
-            try {
-                // Buscar dados
-                const candles = await APIS.klines(symbol, '15m', 100);
-                if (!candles.length) return;
-                
-                const [mtfData, fundingData, obData, fgData] = await Promise.all([
-                    getMTFConfluence(symbol),
-                    getFundingRate(symbol),
-                    getOrderBook(symbol, 10),
-                    getFearGreed()
-                ]);
-                
-                const closes = candles.map(c => c.close);
-                const ema20 = calcEMA(closes, 20);
-                const ema50 = calcEMA(closes, 50);
-                
-                // RSI
-                let rsiValues = [];
-                let avgGain = 0, avgLoss = 0;
-                for (let i = 1; i < closes.length; i++) {
-                    const diff = closes[i] - closes[i-1];
-                    const gain = diff > 0 ? diff : 0;
-                    const loss = diff < 0 ? Math.abs(diff) : 0;
-                    if (i === 1) { avgGain = gain; avgLoss = loss; }
-                    else {
-                        avgGain = (avgGain * 13 + gain) / 14;
-                        avgLoss = (avgLoss * 13 + loss) / 14;
-                    }
-                    const rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
-                    rsiValues.push(rsi);
-                }
-                const currentRSI = rsiValues.length ? rsiValues[rsiValues.length-1] : 50;
-                
-                const adxData = calculateADX(candles);
-                const divergence = detectRSIDivergence(candles, rsiValues);
-                
-                const volumeMA = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
-                const currentVol = candles[candles.length-1].volume;
-                
-                const indicators = {
-                    close: closes[closes.length-1],
-                    ema20: ema20[ema20.length-1],
-                    ema50: ema50[ema50.length-1],
-                    rsi: currentRSI,
-                    adx: adxData.adx,
-                    trend: adxData.trend,
-                    divergence: divergence ? divergence.type : null,
-                    mtfScore: mtfData.score,
-                    fundingRate: fundingData.rate,
-                    volumeRatio: currentVol / volumeMA,
-                    macdHist: 0,
-                    macdHistPrev: 0
-                };
-                
-                const scoreData = calculateSignalScore(indicators);
-                
-                // Filtros
-                const adxFilt = adxFilter(candles);
-                const obFilt = orderBookFilter(obData, scoreData.direction);
-                const fundFilt = fundingFilter(fundingData, scoreData.direction);
-                const fgFilt = fearGreedFilter(fgData, scoreData.direction);
-                
-                let blocked = [];
-                if (!adxFilt.pass) blocked.push(adxFilt.reason);
-                if (!obFilt.pass) blocked.push(obFilt.reason);
-                if (!fundFilt.pass) blocked.push(fundFilt.reason);
-                
-                const canTrade = blocked.length === 0 && scoreData.score >= 55;
-                
-                let trailingParams = null;
-                if (canTrade) {
-                    trailingParams = generateTrailingStopParams(candles, indicators.close, scoreData.direction);
-                }
-                
-                // Atualizar painel
-                updateStrengthPanel(scoreData, mtfData, fundingData, adxData, obData, fgData);
-                
-                // Atualizar sinal principal
-                const signalEl = document.getElementById('mainSignal');
-                if (signalEl) {
-                    if (canTrade) {
-                        const dir = scoreData.direction;
-                        const color = dir === 'LONG' ? '#00e676' : '#ff1744';
-                        let html = `<div style="color:${color};font-size:24px;font-weight:900;">${dir}</div>`;
-                        html += `<div style="color:#8b949e;font-size:11px;">Score: ${scoreData.score}/100 — ${scoreData.label}</div>`;
-                        if (trailingParams) html += formatTrailingHTML(trailingParams, dir);
-                        if (fgFilt.multiplier !== 1) html += `<div style="margin-top:6px;color:#ffc107;font-size:10px;">Position Size: x${fgFilt.multiplier} (${fgFilt.reason})</div>`;
-                        signalEl.innerHTML = html;
-                    } else {
-                        let html = `<div style="color:#8b949e;font-size:16px;font-weight:700;">SEM SINAL</div>`;
-                        if (blocked.length) html += blocked.map(b => `<div style="color:#ff5252;font-size:10px;">⛔ ${b}</div>`).join('');
-                        html += `<div style="color:#8b949e;font-size:10px;margin-top:4px;">Score: ${scoreData.score}/100 — Aguardando confluência</div>`;
-                        signalEl.innerHTML = html;
-                    }
-                }
-                
-                // Atualizar score principal (backward compatibility)
-                const scoreEl = DOM['score-value'] || document.getElementById('score-value');
-                const barEl = DOM['score-bar'] || document.getElementById('score-bar');
-                if (scoreEl) {
-                    const s = scoreData.score;
-                    scoreEl.textContent = s;
-                    scoreEl.style.color = s >= 75 ? 'var(--accent-green)' : s <= 25 ? 'var(--accent-red)' : 'var(--accent-yellow)';
-                }
-                if (barEl) {
-                    barEl.style.width = scoreData.score + '%';
-                    barEl.style.background = scoreData.score >= 75 ? 'var(--accent-green)' : scoreData.score <= 25 ? 'var(--accent-red)' : 'var(--accent-yellow)';
-                }
-                
-            } catch(e) {
-                console.error('Signal engine error:', e);
-            }
-        }
-
-        // ================================================================
-        // 4. FUNÇÕES EXISTENTES (mantidas para compatibilidade)
+        // 2. MATHEMATICAL & SMC ENGINES
         // ================================================================
         function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
         function updateStatefulEMA(prevEMA, newPrice, period) {
             if (!prevEMA) return newPrice;
             const k = 2 / (period + 1);
             return (newPrice * k) + (prevEMA * (1 - k));
         }
+
         function updateStatefulRSI(prevState, newPrice, prevPrice, period=14) {
             if (!prevPrice) return { avgGain: 0, avgLoss: 0, rsi: 50 };
             let diff = newPrice - prevPrice;
@@ -1288,6 +627,7 @@
             let rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
             return { avgGain, avgLoss, rsi };
         }
+
         function updateSwingPoints(data) {
             const c1H = data.candles1H;
             if (c1H.length < 10) return;
@@ -1308,6 +648,7 @@
             else if (lastCandle.close < lastLow) data.currentBOS = 'BEARISH';
             else data.currentBOS = 'NEUTRAL';
         }
+
         function findSMCSetup(data, direction) {
             const last = data.candles1H.at(-1);
             if (!last || data.swingLows.length === 0 || data.swingHighs.length === 0) return false;
@@ -1323,6 +664,10 @@
             }
             return false;
         }
+
+        // ================================================================
+        // 3. FILTROS (mesmos da versão anterior)
+        // ================================================================
         function checkLateralMarket(data, currentPrice) {
             const atr = data.atr_1H || 0;
             const atrPercent = atr / currentPrice;
@@ -1339,6 +684,7 @@
             }
             return { blocked: false, bonus: 0 };
         }
+
         function detectHTFStructure(data, htfCandles) {
             if (!htfCandles || htfCandles.length < 20) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
             let highs = [], lows = [];
@@ -1354,6 +700,7 @@
             else if (lastClose < lastSwingLow) bias = 'BEARISH';
             return { bias, lastSwingHigh, lastSwingLow };
         }
+
         function checkHTFAlignment(data, ltfDirection) {
             const htf = data.htfStructure;
             if (htf.bias === 'NEUTRAL') return { passed: true, penalty: 0 };
@@ -1361,6 +708,7 @@
             if (ltfDirection === 'SHORT' && htf.bias === 'BEARISH') return { passed: true, bonus: 10 };
             return { passed: false, penalty: 30, reason: `HTF ${htf.bias} não alinhado com LTF ${ltfDirection}` };
         }
+
         function checkOnChainFilter(data, symbol) {
             if (symbol !== 'BTCUSDT') return { allow: true, bonus: 0 };
             const mvrv = data.mvrv || 1.2;
@@ -1373,6 +721,7 @@
             if (currentPrice < realizedPrice) return { allow: true, bonus: 10, reason: 'Preço abaixo do valor realizado' };
             return { allow: true, bonus: 0 };
         }
+
         function checkVolumeAndOrderflow(data, direction) {
             const currentVol = data.currentVolume || 0;
             const avgVol = data.volumeAvg || 1;
@@ -1400,6 +749,7 @@
             if (fvgConfluence) bonus += 15;
             return { volumeConfirmed: volumeSpike, orderflowConfirmed: cvdSpike, fvgConfluence, bonus };
         }
+
         function checkDerivativesFilter(data, direction) {
             const fr = data.fundingRate || 0;
             const oiDelta = data.oiDelta || 0;
@@ -1419,6 +769,7 @@
             }
             return { allow: true, bonus: 0 };
         }
+
         function checkLiquidationConfluence(symbol, data) {
             const levels = liquidationLevels[symbol] || [];
             if (levels.length === 0) return { alert: false };
@@ -1438,12 +789,14 @@
             }
             return { alert: false };
         }
+
         function getSMCZones(data) {
             const zones = [];
             if (data.swingHighs.length > 0) zones.push({ type: 'resistance', level: Math.max(...data.swingHighs) });
             if (data.swingLows.length > 0) zones.push({ type: 'support', level: Math.min(...data.swingLows) });
             return zones;
         }
+
         function checkMTFAlignment(data, direction) {
             let aligned = 0;
             const trend4H = data.trend4H || 'NEUTRAL';
@@ -1460,6 +813,7 @@
             }
             return { passed: true, alignedCount: aligned };
         }
+
         function checkPortfolioExposure(direction) {
             const sameDir = Object.values(activePositions).filter(p => p.type === direction).length;
             if (sameDir >= 1) {
@@ -1467,13 +821,19 @@
             }
             return { blocked: false };
         }
+
+        // ================================================================
+        // 4. SCORE
+        // ================================================================
         function computeScore(symbol) {
             const data = assetsData[symbol];
             if (!data || data.price === 0) return { score: 50, components: {}, blockReason: null };
+
             let score = 50, blockReason = null, scoreBonus = 0;
             let smcScore = 50;
             if (data.currentBOS === 'BULLISH') smcScore = 80;
             else if (data.currentBOS === 'BEARISH') smcScore = 20;
+
             const primaryDirection = data.currentBOS === 'BULLISH' ? 'LONG' : (data.currentBOS === 'BEARISH' ? 'SHORT' : null);
             let mtfPassed = true, mtfAlignedCount = 0;
             if (primaryDirection) {
@@ -1483,47 +843,58 @@
                 if (!mtfPassed) blockReason = mtfCheck.reason;
                 else scoreBonus += mtfAlignedCount * 5;
             }
+
             if (primaryDirection) {
                 const htfCheck = checkHTFAlignment(data, primaryDirection);
                 if (!htfCheck.passed) blockReason = htfCheck.reason || 'HTF não alinhado';
                 else scoreBonus += htfCheck.bonus || 0;
             }
+
             let momScore = clamp(data.rsi_1H, 0, 100);
             if (primaryDirection === 'LONG' && data.rsi_1H > 75) momScore *= 0.6;
             if (primaryDirection === 'SHORT' && data.rsi_1H < 25) momScore = 100 - momScore;
+
             let ofScore = 50;
             const liq = liqMap[symbol] || { longs: 0, shorts: 0 };
             if (primaryDirection === 'LONG' && liq.shorts > 50000) ofScore = 80;
             else if (primaryDirection === 'LONG' && liq.longs > 50000) ofScore = 20;
             else if (primaryDirection === 'SHORT' && liq.longs > 50000) ofScore = 80;
             else if (primaryDirection === 'SHORT' && liq.shorts > 50000) ofScore = 20;
+
             const macroSafe = isSafeToTrade() ? 100 : 0;
             let oiScore = clamp(50 + (data.oiDelta * 2), 0, 100);
+
             const lateralCheck = checkLateralMarket(data, data.price);
             if (lateralCheck.blocked) blockReason = lateralCheck.reason;
             else if (lateralCheck.bonus) scoreBonus += lateralCheck.bonus;
+
             if (primaryDirection) {
                 const volCheck = checkVolumeAndOrderflow(data, primaryDirection);
                 scoreBonus += volCheck.bonus || 0;
             }
+
             if (symbol === 'BTCUSDT' && primaryDirection) {
                 const ocCheck = checkOnChainFilter(data, symbol);
                 if (!ocCheck.allow) blockReason = ocCheck.reason;
                 else scoreBonus += ocCheck.bonus || 0;
             }
+
             if (primaryDirection) {
                 const derivCheck = checkDerivativesFilter(data, primaryDirection);
                 if (!derivCheck.allow) blockReason = derivCheck.reason;
                 else scoreBonus += derivCheck.bonus || 0;
             }
+
             const liqConfluence = checkLiquidationConfluence(symbol, data);
             if (liqConfluence.alert) {
                 scoreBonus += 20;
                 sendTelegramAlert(liqConfluence.message);
             }
+
             if (blockReason) {
                 return { score: 50, components: { mtf: '50', smc: '50', mom: '50', of: '50', macro: '50', oi: '50' }, blockReason };
             }
+
             let rawScore = (smcScore * 0.25) + (momScore * 0.15) + (ofScore * 0.10) + (macroSafe * 0.10) + (oiScore * 0.05);
             if (mtfPassed && primaryDirection) rawScore += 10;
             const chop = computeChoppiness(data);
@@ -1532,6 +903,7 @@
             rawScore += scoreBonus;
             let finalScore = Math.round(clamp(rawScore, 0, 100));
             data.mtfTrend = (finalScore >= 55) ? 'LONG' : (finalScore <= 45 ? 'SHORT' : 'NEUTRAL');
+
             return {
                 score: finalScore,
                 components: {
@@ -1546,11 +918,16 @@
                 action: finalScore >= 70 ? 'COMPRA' : (finalScore <= 30 ? 'VENDA' : 'NEUTRO')
             };
         }
+
+        // ================================================================
+        // 5. POSITION MANAGEMENT
+        // ================================================================
         function checkPositionManagement(symbol, currentPrice) {
             const pos = activePositions[symbol];
             if (!pos) return;
             const data = assetsData[symbol];
             let updateUI = false;
+
             if (pos.type === 'LONG') {
                 if (data.swingLows.length > 0) {
                     const lastSwingLow = Math.min(...data.swingLows);
@@ -1616,6 +993,7 @@
             }
             if (updateUI) updateActiveTradesUI();
         }
+
         function closePosition(symbol, reason, isWin) {
             const pos = activePositions[symbol];
             if (!pos) return;
@@ -1624,6 +1002,10 @@
             sendTelegramAlert(`${isWin ? '✅' : '❌'} <b>POSIÇÃO FECHADA (${symbol})</b>\nMotivo: ${reason}\nWinrate Atual: ${((tradeStats.wins / (tradeStats.wins+tradeStats.losses))*100).toFixed(1)}%`);
             delete activePositions[symbol];
         }
+
+        // ================================================================
+        // 6. MAIN LOOP
+        // ================================================================
         function evaluateMarkets() {
             ASSETS.forEach(symbol => {
                 const data = assetsData[symbol];
@@ -1631,9 +1013,11 @@
                 const scoreData = computeScore(symbol);
                 const score = scoreData.score;
                 const blockReason = scoreData.blockReason;
+
                 scoreHistory.push({ time: getCurrentTimestamp().split(' ')[1], symbol: symbol, score: score });
                 if (scoreHistory.length > 150) scoreHistory.shift();
                 if (symbol === 'BTCUSDT') updateMainScoreUI(scoreData, blockReason);
+
                 const prevScore = previousScores[symbol] || 50;
                 if (!activePositions[symbol] && !blockReason && isSafeToTrade()) {
                     const now = Date.now();
@@ -1680,7 +1064,7 @@
         }
 
         // ================================================================
-        // 5. DATA FETCHING (mantido)
+        // 7. DATA FETCHING
         // ================================================================
         async function fetchHistoricalCandles(symbol, interval, limit=200) {
             try {
@@ -1691,6 +1075,7 @@
                 return data.map(k => ({ time: k[0]/1000, open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]) }));
             } catch(e) { handleApiError(`Binance (${symbol} ${interval})`, e); return []; }
         }
+
         async function fetchFundingRate(symbol) {
             try {
                 const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&limit=1`;
@@ -1706,6 +1091,7 @@
                 }
             } catch(e) { handleApiError(`FundingRate ${symbol}`, e); }
         }
+
         async function fetchOpenInterest(symbol) {
             try {
                 const url = `https://fapi.binance.com/futures/data/openInterestHist?symbol=${symbol}&period=15m&limit=2`;
@@ -1729,6 +1115,7 @@
                 }
             } catch(e) { handleApiError(`OpenInterest ${symbol}`, e); }
         }
+
         async function fetchOnChainData() {
             try {
                 const metrics = ['mvrv', 'sopr', 'realized_price'];
@@ -1751,6 +1138,8 @@
                 });
             } catch(e) { handleApiError('OnChain', e); }
         }
+
+        // ===== NOVA FUNÇÃO: BUSCA DADOS MACRO VIA YAHOO FINANCE =====
         async function fetchMacroIndicators() {
             const symbols = ['DX-Y.NYB', '^TNX', '^VIX'];
             const ids = ['dxy-value', 'us10y-value', 'vix-value'];
@@ -1767,7 +1156,7 @@
                         const el = document.getElementById(ids[idx]);
                         const updateEl = document.getElementById(updateIds[idx]);
                         if (el) {
-                            if (idx === 1) {
+                            if (idx === 1) { // US10Y
                                 el.textContent = (price * 100).toFixed(2) + '%';
                             } else {
                                 el.textContent = price.toFixed(2);
@@ -1783,13 +1172,17 @@
                 handleApiError('Macro (Yahoo)', e);
             }
         }
+
+        // Função para atualizar a UI macro com os valores estáticos iniciais (fallback)
         function updateMacroUI() {
+            // Os valores já estão no HTML, apenas atualizamos os timestamps
             const now = getCurrentTimestamp();
             ['dxy-update', 'us10y-update', 'vix-update'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = 'atualizado ' + now;
             });
         }
+
         function calculateBB(data, period=20, multiplier=2) {
             const candles = data.candles1H;
             if (candles.length < period) return { bbWidth: 0.1, upper: 0, lower: 0 };
@@ -1802,6 +1195,7 @@
             const bbWidth = (upper - lower) / sma;
             return { bbWidth, upper, lower };
         }
+
         async function warmUpIndicators() {
             for (const symbol of ASSETS) {
                 const [c1H, c4H, c1D] = await Promise.all([
@@ -1819,11 +1213,13 @@
                     assetsData[symbol].price = closes.at(-1);
                     assetsData[symbol].ema50_1H = closes.slice(-50).reduce((a,b)=>a+b,0) / 50;
                     assetsData[symbol].ema200_4H = closes.slice(-200).reduce((a,b)=>a+b,0) / 200;
-                    assetsData[symbol].atr_1H = calculateATR(c1H, 14);
+                    assetsData[symbol].atr_1H = calculateATR(highs, lows, closes, 14);
                     const atrHist = [];
                     for (let i = 14; i < highs.length; i++) {
-                        const slice = c1H.slice(i-14, i);
-                        atrHist.push(calculateATR(slice, 14));
+                        const sliceHighs = highs.slice(i-14, i);
+                        const sliceLows = lows.slice(i-14, i);
+                        const sliceCloses = closes.slice(i-14, i);
+                        atrHist.push(calculateATR(sliceHighs, sliceLows, sliceCloses, 14));
                     }
                     assetsData[symbol].atrHistory = atrHist.slice(-50);
                     let gains = 0, losses = 0;
@@ -1848,9 +1244,19 @@
                 }
             }
             await fetchOnChainData();
-            await fetchMacroIndicators();
+            await fetchMacroIndicators(); // busca inicial macro
             evaluateMarkets();
         }
+
+        function calculateATR(highs, lows, closes, period=14) {
+            if (closes.length < period+1) return 0;
+            let trs = [];
+            for(let i=1; i<highs.length; i++) {
+                trs.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+            }
+            return trs.slice(-period).reduce((a,b)=>a+b,0)/period;
+        }
+
         function isSafeToTrade() {
             const now = new Date();
             const hourUTC = now.getUTCHours();
@@ -1866,6 +1272,7 @@
             if ((hourUTC >= 13 && hourUTC <= 17) || (hourUTC >= 0 && hourUTC <= 4)) return true;
             return false;
         }
+
         function computeChoppiness(data) {
             const c = data.candles1H.slice(-14);
             if (c.length < 14) return 50;
@@ -1881,6 +1288,7 @@
             const chop = 100 * Math.log10(trueRange / range) / Math.log10(14);
             return clamp(chop, 0, 100);
         }
+
         function KellyPositionSize(winRate, rrRatio) {
             if (winRate <= 0 || rrRatio <= 0) return 0.01;
             const W = winRate;
@@ -1891,7 +1299,7 @@
         }
 
         // ================================================================
-        // 6. UI UPDATES (mantido)
+        // 8. UI UPDATES (com flash de preço e PnL)
         // ================================================================
         function updateLivePriceUI(symbol, price) {
             const prefix = symbol.replace('USDT', '').toLowerCase();
@@ -1908,6 +1316,7 @@
                 }
             }
         }
+
         function updateMainScoreUI(scoreData, blockReason) {
             const s = scoreData.score;
             const c = scoreData.components;
@@ -1929,6 +1338,7 @@
             if (blockReason) { reasonEl.style.display = 'block'; reasonEl.textContent = '🚫 ' + blockReason; } 
             else { reasonEl.style.display = 'none'; }
         }
+
         function updateActiveTradesUI() {
             ASSETS.forEach(symbol => {
                 const id = symbol.toLowerCase();
@@ -1959,6 +1369,7 @@
                 }
             });
         }
+
         function updateTimestamps() { 
             const ts = getCurrentTimestamp();
             const headerEl = DOM['header-timestamp'] || document.getElementById('header-timestamp');
@@ -1971,19 +1382,22 @@
         }
 
         // ================================================================
-        // 7. CHART.JS & LIGHTWEIGHT CHARTS (mantido)
+        // 9. CHART.JS & LIGHTWEIGHT CHARTS (preservados)
         // ================================================================
         window.charts = [];
         const chartColors = { primary: 'rgb(0, 180, 216)', secondary: 'rgb(233, 69, 96)', success: 'rgb(0, 217, 142)', warning: 'rgb(255, 214, 10)', text: 'rgb(236, 240, 241)', border: 'rgb(44, 62, 80)' };
         const ctxScore = document.getElementById('chart_score_history').getContext('2d');
         const scoreChart = new Chart(ctxScore, { type: 'line', data: { labels: [], datasets: [{ label: 'BTC Score', data: [], borderColor: chartColors.primary, borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, ticks: { color: chartColors.text }, grid: { color: chartColors.border } }, x: { ticks: { color: chartColors.text, maxTicksLimit: 10 }, grid: { color: chartColors.border } } } } });
         window.charts.push(scoreChart);
+
         function updateScoreChart() {
             const btcHist = scoreHistory.filter(s => s.symbol === 'BTCUSDT').slice(-50);
             scoreChart.data.labels = btcHist.map(s => s.time);
             scoreChart.data.datasets[0].data = btcHist.map(s => s.score);
             scoreChart.update('none');
         }
+
+        // (Gráficos estáticos - mantidos)
         const ctx1 = document.getElementById('chart_etf_flows').getContext('2d');
         window.charts.push(new Chart(ctx1, { type: 'bar', data: { labels: ['22 JUN', '23 JUN', '24 JUN', '25 JUN', '26 JUN', '27 JUN', '28 JUN'], datasets: [{ label: 'BTC ETF Flow (ref)', data: [-120, -85, -155, -92, -138, -165, -445], backgroundColor: 'rgba(233,69,96,0.6)', borderColor: 'rgb(233,69,96)', borderWidth: 2 }, { label: 'ETH ETF Flow (ref)', data: [-8, -12, -15, -10, -18, -20, -12.85], backgroundColor: 'rgba(0,180,216,0.4)', borderColor: 'rgb(0,180,216)', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: chartColors.text } }, title: { display: true, text: 'ETF Flows (referência)', color: chartColors.text } }, scales: { y: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } }, x: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } } } } }));
         const ctx2 = document.getElementById('chart_macro_rates').getContext('2d');
@@ -1995,6 +1409,7 @@
         const ctxW = document.getElementById('chart_whale_flow').getContext('2d');
         window.charts.push(new Chart(ctxW, { type: 'bar', data: { labels: ['BTC', 'ETH'], datasets: [{ label: 'Acumulação (ref)', data: [700, 0], backgroundColor: 'rgba(0,217,142,0.7)', borderColor: 'rgb(0,217,142)', borderWidth: 2 }, { label: 'Distribuição (ref)', data: [0, 27.4], backgroundColor: 'rgba(233,69,96,0.7)', borderColor: 'rgb(233,69,96)', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: chartColors.text } }, title: { display: true, text: 'Fluxo de Baleias (referência)', color: chartColors.text } }, scales: { y: { ticks: { color: chartColors.text }, grid: { color: chartColors.border }, title: { display: true, text: 'Volume (USD M)', color: chartColors.text } }, x: { ticks: { color: chartColors.text }, grid: { color: chartColors.border } } } } }));
 
+        // Lightweight Charts
         let candleCharts = {};
         function initCandleChart(containerId, symbol, color) {
             const container = document.getElementById(containerId); if(!container) return null;
@@ -2011,6 +1426,7 @@
             });
             return { chart, candleSeries };
         }
+
         async function fetchDailyStats(symbol) {
             try {
                 const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=31`;
@@ -2027,7 +1443,7 @@
         }
 
         // ================================================================
-        // 8. WEBSOCKET (mantido)
+        // 10. WEBSOCKET
         // ================================================================
         function initWebSockets() {
             const wsStatusEl = document.getElementById('ws-status') || document.querySelector('.live-indicator');
@@ -2083,7 +1499,7 @@
         }
 
         // ================================================================
-        // 9. INITIALIZATION
+        // 11. INITIALIZATION
         // ================================================================
         async function initialLoad() {
             cacheDOM();
@@ -2131,14 +1547,15 @@
                 fetchOnChainData()
             ]);
 
+            // Atualização macro
             await fetchMacroIndicators();
-            setInterval(fetchMacroIndicators, 300000);
+            setInterval(fetchMacroIndicators, 300000); // a cada 5 minutos
 
             const btn = document.getElementById('test-telegram-btn');
             btn.addEventListener('click', async () => {
                 btn.disabled = true;
                 document.getElementById('test-btn-label').innerHTML = '<span class="spinner"></span> Enviando...';
-                const ok = await sendTelegramAlert('🔔 <b>TESTE DE CONEXÃO V2 - Motor Institucional Ativo!</b>\n⚛️ SMC + MTF + Orderflow + Trailing Stop + Comitê\n⏰ ' + getCurrentTimestamp());
+                const ok = await sendTelegramAlert('🔔 <b>TESTE DE CONEXÃO V2 - Motor Institucional Ativo!</b>\n⚛️ SMC + MTF + Orderflow + Trailing Stop\n⏰ ' + getCurrentTimestamp());
                 document.getElementById('test-btn-label').textContent = ok ? '✅ Enviado!' : '❌ Falha';
                 setTimeout(() => { document.getElementById('test-btn-label').textContent = '📨 Testar Alerta'; btn.disabled = false; }, 3000);
             });
@@ -2165,8 +1582,10 @@
                         const lows = assetsData[symbol].candles1H.map(c => c.low);
                         const atrHist = [];
                         for (let i = 14; i < highs.length; i++) {
-                            const slice = assetsData[symbol].candles1H.slice(i-14, i);
-                            atrHist.push(calculateATR(slice, 14));
+                            const sliceHighs = highs.slice(i-14, i);
+                            const sliceLows = lows.slice(i-14, i);
+                            const sliceCloses = closes.slice(i-14, i);
+                            atrHist.push(calculateATR(sliceHighs, sliceLows, sliceCloses, 14));
                         }
                         assetsData[symbol].atrHistory = atrHist.slice(-50);
                         assetsData[symbol].atr_1H = atrHist.at(-1) || 0;
@@ -2203,17 +1622,11 @@
                     }
                 }
                 evaluateMarkets();
-                runSignalEngine(); // também executa a nova engine
             }, 300000); 
-            
-            // Executa a nova engine a cada 15 segundos
-            setInterval(runSignalEngine, 15000);
-            // Primeira execução imediata
-            setTimeout(runSignalEngine, 1000);
         }
 
         // ================================================================
-        // 10. FUNÇÕES AUXILIARES (mantido)
+        // 12. FUNÇÕES AUXILIARES (fetch restantes)
         // ================================================================
         async function fetchPrices() { 
             try {
