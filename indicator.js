@@ -1,5 +1,5 @@
 // ============================================================
-// INDICATOR MODULE – SMC + MTF (v3.1.1)
+// INDICATOR MODULE – SMC + MTF (v3.1.2)
 // Todas as funções de análise e sinais
 // ============================================================
 
@@ -229,27 +229,51 @@ export const calculateConfidenceScore = ({
     let score = 50;
     const reasons = [];
     
+    const sign = direction === 'SHORT' ? -1 : 1;
+
+    // MTF com sinal
     if (mtfAligned) { 
-        score += 18; 
+        score += sign * 18; 
         reasons.push('MTF alinhado'); 
     } else if (mtfAlignedParcial) { 
-        score += 8; 
+        score += sign * 8; 
         reasons.push('MTF parcialmente alinhado'); 
     } else { 
-        score -= 12; 
+        score -= sign * 12; 
         reasons.push('MTF desalinhado'); 
     }
     
+    // ADX com sinal
     const adxVal = typeof adx === 'object' ? adx.adx : adx;
-    if (adxVal >= 23) { score += 15; reasons.push(`ADX ${adxVal.toFixed(1)} forte`); } 
-    else if (adxVal >= 18) { score += 7; reasons.push(`ADX ${adxVal.toFixed(1)} formando`); } 
-    else { score -= 10; reasons.push(`ADX ${adxVal.toFixed(1)} lateral`); }
-    
-    if (volumeAnomaly) {
-        if (volumeAnomaly.type === 'HIGH') { score += 10; reasons.push('Volume alto'); } 
-        else if (volumeAnomaly.type === 'LOW') { score -= 5; reasons.push('Volume baixo'); }
+    if (adxVal >= 23) { 
+        score += sign * 15; 
+        reasons.push(`ADX ${adxVal.toFixed(1)} forte`); 
+    } else if (adxVal >= 18) { 
+        score += sign * 7; 
+        reasons.push(`ADX ${adxVal.toFixed(1)} formando`); 
+    } else { 
+        score -= sign * 10; 
+        reasons.push(`ADX ${adxVal.toFixed(1)} lateral`); 
     }
     
+    // Volume com sinal
+    if (volumeAnomaly) {
+        if (volumeAnomaly.type === 'HIGH') { 
+            score += sign * 10; 
+            reasons.push('Volume alto'); 
+        } else if (volumeAnomaly.type === 'LOW') { 
+            score -= sign * 5; 
+            reasons.push('Volume baixo'); 
+        }
+    }
+    
+    // BOS com sinal
+    if (smcStructure === 'BOS') { 
+        score += sign * 5; 
+        reasons.push('BOS confirmado'); 
+    }
+    
+    // Funding (já direcional)
     const FUNDING_PENALTY = 18;
     const FUNDING_BONUS = 8;
     if (direction === 'LONG') {
@@ -260,12 +284,16 @@ export const calculateConfidenceScore = ({
         else if (fundingRate > 0) { score += FUNDING_BONUS; reasons.push('Funding positivo (SHORT)'); }
     }
     
+    // Divergência (já direcional)
     if (divergence) {
         if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { score += 10; reasons.push('Divergência alta'); }
         else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { score += 10; reasons.push('Divergência baixa'); }
     }
+    
+    // Macro Blackout (sempre penaliza)
     if (macroBlackout) { score -= 20; reasons.push('Macro blackout'); }
-    if (smcStructure === 'BOS') { score += 5; reasons.push('BOS confirmado'); }
+    
+    // OI (já direcional)
     if (openInterestTrend === 'INCREASING' && direction === 'LONG') { score += 5; reasons.push('OI crescente LONG'); }
     else if (openInterestTrend === 'DECREASING' && direction === 'SHORT') { score += 5; reasons.push('OI decrescente SHORT'); }
     
