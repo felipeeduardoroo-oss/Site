@@ -1,5 +1,5 @@
 // ============================================================
-// INDICATOR MODULE – SMC + MTF (v3.1)
+// INDICATOR MODULE – SMC + MTF (v3.1.1)
 // Todas as funções de análise e sinais
 // ============================================================
 
@@ -229,7 +229,6 @@ export const calculateConfidenceScore = ({
     let score = 50;
     const reasons = [];
     
-    // MTF com gradiente
     if (mtfAligned) { 
         score += 18; 
         reasons.push('MTF alinhado'); 
@@ -251,7 +250,6 @@ export const calculateConfidenceScore = ({
         else if (volumeAnomaly.type === 'LOW') { score -= 5; reasons.push('Volume baixo'); }
     }
     
-    // Simetrizar penalidade de funding
     const FUNDING_PENALTY = 18;
     const FUNDING_BONUS = 8;
     if (direction === 'LONG') {
