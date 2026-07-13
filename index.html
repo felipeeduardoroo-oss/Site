@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.1.6)</title>
+    <title>Backtest Engine — SMC + MTF (v3.2.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.1.6)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.2.0)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -114,16 +114,349 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.1.6:</strong> Correções: RSI invertido, TP1 contabilizado, trade fantasma eliminado, BOS histórico, trailing buffer 1.2 ATR, tempo dinâmico, modo live.
+        <strong>v3.2.0:</strong> Todas as melhorias integradas: Fractais Ordem 3, Rebalanceamento MTF/RSI, Slope HTF, Ajuste Confidence, Funding Hard Limits, BOS histórico, TP1 contabilizado, sem trade fantasma, modo live, trailing buffer 1.2 ATR, tempo dinâmico.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.1.6 – CORREÇÕES DE BUGS CRÍTICOS
+    // BACKTEST ENGINE v3.2.0 – TODAS AS FUNÇÕES EMBUTIDAS
     // ============================================================
 
-    import * as indicator from './indicator.js';
+    // ----- FUNÇÕES DO INDICADOR (com melhorias aplicadas) -----
+
+    const calcEMA = (data, period) => {
+        if (!data || data.length === 0) return [];
+        const result = [];
+        const mult = 2 / (period + 1);
+        let ema = data[0];
+        result.push(ema);
+        for (let i = 1; i < data.length; i++) {
+            ema = (data[i] - ema) * mult + ema;
+            result.push(ema);
+        }
+        return result;
+    };
+
+    const calculateATR = (candles, period = 14, lookback = 100) => {
+        const data = candles.slice(-Math.max(lookback, period + 1));
+        if (data.length < period + 1) return 0;
+        const tr = [];
+        for (let i = 1; i < data.length; i++) {
+            const high = data[i].high;
+            const low = data[i].low;
+            const prevClose = data[i - 1].close;
+            tr.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+        }
+        let atr = tr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        for (let i = period; i < tr.length; i++) {
+            atr = (atr * (period - 1) + tr[i]) / period;
+        }
+        return atr;
+    };
+
+    const calculateVWAP = (candles) => {
+        if (!candles || candles.length === 0) return 0;
+        let sum = 0, vol = 0;
+        for (const c of candles) {
+            const typical = (c.high + c.low + c.close) / 3;
+            sum += typical * c.volume;
+            vol += c.volume;
+        }
+        return vol > 0 ? sum / vol : 0;
+    };
+
+    const calculateADX = (candles, period = 14, lookback = 50) => {
+        const data = candles.slice(-Math.max(lookback, period * 2 + 1));
+        if (data.length < period * 2 + 1) return { adx: 0, plusDI: 0, minusDI: 0 };
+        const high = data.map(c => c.high);
+        const low = data.map(c => c.low);
+        const close = data.map(c => c.close);
+        const tr = [], plusDM = [], minusDM = [];
+        for (let i = 1; i < data.length; i++) {
+            const h = high[i], l = low[i], pc = close[i - 1];
+            tr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+            const up = h - high[i - 1];
+            const down = low[i - 1] - l;
+            plusDM.push((up > down && up > 0) ? up : 0);
+            minusDM.push((down > up && down > 0) ? down : 0);
+        }
+        let atr = tr.slice(0, period).reduce((a, b) => a + b, 0);
+        let plus = plusDM.slice(0, period).reduce((a, b) => a + b, 0);
+        let minus = minusDM.slice(0, period).reduce((a, b) => a + b, 0);
+        const dxArr = [];
+        for (let i = period; i < tr.length; i++) {
+            atr = (atr * (period - 1) + tr[i]) / period;
+            plus = (plus * (period - 1) + plusDM[i]) / period;
+            minus = (minus * (period - 1) + minusDM[i]) / period;
+            const plusDI = atr > 0 ? (plus / atr) * 100 : 0;
+            const minusDI = atr > 0 ? (minus / atr) * 100 : 0;
+            const sum = plusDI + minusDI;
+            const dx = sum > 0 ? (Math.abs(plusDI - minusDI) / sum) * 100 : 0;
+            dxArr.push(dx);
+        }
+        let adx = 0;
+        if (dxArr.length >= period) {
+            const start = dxArr.length - period;
+            let sum = 0;
+            for (let i = start; i < dxArr.length; i++) sum += dxArr[i];
+            adx = sum / period;
+        } else if (dxArr.length > 0) adx = dxArr.reduce((a, b) => a + b, 0) / dxArr.length;
+        const finalPlusDI = atr > 0 ? (plus / atr) * 100 : 0;
+        const finalMinusDI = atr > 0 ? (minus / atr) * 100 : 0;
+        return { adx, plusDI: finalPlusDI, minusDI: finalMinusDI };
+    };
+
+    const detectRSIDivergence = (candles, rsiValues, lookback = 50) => {
+        if (candles.length < lookback + 14 || rsiValues.length < lookback) return null;
+        const startIdx = candles.length - lookback;
+        const findPeaks = (arr, getValue) => {
+            const peaks = [];
+            for (let i = 2; i < arr.length - 2; i++) {
+                const val = getValue(arr[i]);
+                const v1 = getValue(arr[i - 1]), v2 = getValue(arr[i - 2]);
+                const v3 = getValue(arr[i + 1]), v4 = getValue(arr[i + 2]);
+                if (val > v1 && val > v2 && val > v3 && val > v4) peaks.push({ index: i, value: val });
+            }
+            return peaks;
+        };
+        const findTroughs = (arr, getValue) => {
+            const troughs = [];
+            for (let i = 2; i < arr.length - 2; i++) {
+                const val = getValue(arr[i]);
+                const v1 = getValue(arr[i - 1]), v2 = getValue(arr[i - 2]);
+                const v3 = getValue(arr[i + 1]), v4 = getValue(arr[i + 2]);
+                if (val < v1 && val < v2 && val < v3 && val < v4) troughs.push({ index: i, value: val });
+            }
+            return troughs;
+        };
+        const priceSlice = candles.slice(startIdx);
+        const rsiSlice = rsiValues.slice(startIdx);
+        const priceHighs = findPeaks(priceSlice, c => c.high);
+        const priceLows = findTroughs(priceSlice, c => c.low);
+        const rsiHighs = findPeaks(rsiSlice, v => v);
+        const rsiLows = findTroughs(rsiSlice, v => v);
+        if (priceHighs.length >= 2 && rsiHighs.length >= 2) {
+            const p1 = priceHighs[priceHighs.length - 2];
+            const p2 = priceHighs[priceHighs.length - 1];
+            const r1 = rsiHighs[rsiHighs.length - 2];
+            const r2 = rsiHighs[rsiHighs.length - 1];
+            const drop = r1.value - r2.value;
+            if (p2.value > p1.value && r2.value < r1.value && drop >= 5 && r1.value > 55) {
+                return { type: 'BEARISH_REGULAR', strength: drop / r1.value };
+            }
+        }
+        if (priceLows.length >= 2 && rsiLows.length >= 2) {
+            const p1 = priceLows[priceLows.length - 2];
+            const p2 = priceLows[priceLows.length - 1];
+            const r1 = rsiLows[rsiLows.length - 2];
+            const r2 = rsiLows[rsiLows.length - 1];
+            const rise = r2.value - r1.value;
+            if (p2.value < p1.value && r2.value > r1.value && rise >= 5 && r1.value < 45) {
+                return { type: 'BULLISH_REGULAR', strength: rise / r1.value };
+            }
+        }
+        return null;
+    };
+
+    // [MELHORIA 1] Fractais de Ordem 3
+    const updateSwingPoints = (state) => {
+        const candles = state.candles1H || [];
+        if (candles.length < 7) return;
+        const c1 = candles[candles.length - 7];
+        const c2 = candles[candles.length - 6];
+        const c3 = candles[candles.length - 5];
+        const c4 = candles[candles.length - 4];
+        const c5 = candles[candles.length - 3];
+        const c6 = candles[candles.length - 2];
+        const c7 = candles[candles.length - 1];
+        if (c4.high > c1.high && c4.high > c2.high && c4.high > c3.high && 
+            c4.high > c5.high && c4.high > c6.high && c4.high > c7.high) {
+            state.swingHighs.push(c4.high);
+            if (state.swingHighs.length > 20) state.swingHighs.shift();
+        }
+        if (c4.low < c1.low && c4.low < c2.low && c4.low < c3.low && 
+            c4.low < c5.low && c4.low < c6.low && c4.low < c7.low) {
+            state.swingLows.push(c4.low);
+            if (state.swingLows.length > 20) state.swingLows.shift();
+        }
+    };
+
+    // [MELHORIA 3] Slope no HTF
+    const detectHTFStructure = (candles4H) => {
+        if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
+        const closes = candles4H.map(c => c.close);
+        const last = closes[closes.length - 1];
+        const ema50Arr = calcEMA(closes, 50);
+        const ema200Arr = calcEMA(closes, 200);
+        const ema50 = ema50Arr.slice(-1)[0] || last;
+        const ema200 = ema200Arr.slice(-1)[0] || last;
+        const ema50Prev = ema50Arr.slice(-6, -5)[0] || ema50;
+        const slope = ema50 - ema50Prev;
+        let bias = 'NEUTRAL';
+        if (last > ema50 && ema50 > ema200 && slope > 0) {
+            bias = 'BULLISH';
+        } else if (last < ema50 && ema50 < ema200 && slope < 0) {
+            bias = 'BEARISH';
+        }
+        return { 
+            bias, 
+            lastSwingHigh: Math.max(...candles4H.map(c => c.high)), 
+            lastSwingLow: Math.min(...candles4H.map(c => c.low)) 
+        };
+    };
+
+    const checkLateralMarket = (adxValue, threshold = 20) => adxValue < threshold;
+
+    // [MELHORIA 5] Funding Hard Limits mais amplos
+    const checkDerivativesFilter = (fundingRate, oiDelta) => {
+        if (fundingRate > 0.0020) return { allow: false, reason: 'Funding extremamente positivo (>0.2%)' };
+        if (fundingRate < -0.0020) return { allow: false, reason: 'Funding extremamente negativo (<-0.2%)' };
+        if (Math.abs(oiDelta) > 20) return { allow: false, reason: 'OI Delta extremo (>20%)' };
+        return { allow: true, reason: 'OK' };
+    };
+
+    const detectVolumeAnomaly = (candles, period = 20, threshold = 1.5) => {
+        if (candles.length < period) return null;
+        const volumes = candles.map(c => c.volume);
+        const avg = volumes.slice(-period).reduce((a, b) => a + b, 0) / period;
+        const last = volumes[volumes.length - 1];
+        const ratio = avg > 0 ? last / avg : 1;
+        if (ratio > threshold) return { type: 'HIGH', ratio };
+        if (ratio < 1 / threshold) return { type: 'LOW', ratio };
+        return null;
+    };
+
+    const KellyPositionSize = (winRate, rr) => {
+        if (winRate <= 0 || winRate >= 1) return 0.02;
+        if (rr <= 0) return 0.02;
+        const k = (winRate * (rr + 1) - 1) / rr;
+        return Math.min(Math.max(k, 0.01), 0.1);
+    };
+
+    // [MELHORIA 2] Rebalanceamento do Score Base
+    const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
+        const data = assetsData[symbol];
+        if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
+        const base = 50;
+        const mtfScore = data.mtfConfluence?.score || 0;
+        const adxRaw = data.adx;
+        const adxValue = typeof adxRaw === 'object' ? (adxRaw?.adx || 0) : (adxRaw || 0);
+        const rsi = data.rsi_1H || 50;
+        let score = base;
+        // MTF motor principal (peso 15)
+        if (mtfScore > 0) score += 15;
+        else if (mtfScore < 0) score -= 15;
+        // ADX reforça (peso 10)
+        if (adxValue > adxThreshold) {
+            score += (mtfScore > 0 ? 10 : (mtfScore < 0 ? -10 : 0));
+        }
+        // RSI como filtro de exaustão
+        if (rsi > 75) score -= 15;
+        if (rsi < 25) score += 15;
+        let clamped = Math.max(0, Math.min(100, score));
+        const isLateral = checkLateralMarket(adxValue, adxThreshold);
+        let blockReason = null;
+        if (isLateral) {
+            clamped = Math.max(40, Math.min(60, clamped));
+            blockReason = 'Lateralização detectada';
+        }
+        return {
+            score: clamped,
+            direction: clamped >= 60 ? 'LONG' : clamped <= 40 ? 'SHORT' : 'NEUTRAL',
+            components: { mtf: mtfScore > 0 ? 'ALINHADO' : 'NEUTRO', smc: 'NEUTRO', mom: adxValue > adxThreshold ? 'FORTE' : 'FRACO', of: 'NEUTRO', macro: 'NEUTRO', oi: data.oiDelta > 0 ? 'CRESCENDO' : 'DIMINUINDO' },
+            blockReason
+        };
+    };
+
+    // [MELHORIA 4] Ajuste de peso no Confidence Score
+    const calculateConfidenceScore = ({ 
+        mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
+        openInterestTrend, divergence, macroBlackout, smcStructure, 
+        direction, scoreMinLong = 60, scoreMaxShort = 40 
+    }) => {
+        let score = 50;
+        const reasons = [];
+        const sign = direction === 'SHORT' ? -1 : 1;
+
+        if (mtfAligned) { 
+            score += sign * 18; 
+            reasons.push('MTF alinhado'); 
+        } else if (mtfAlignedParcial) { 
+            score += sign * 8; 
+            reasons.push('MTF parcialmente alinhado'); 
+        } else { 
+            score -= sign * 12; 
+            reasons.push('MTF desalinhado'); 
+        }
+        
+        const adxVal = typeof adx === 'object' ? adx.adx : adx;
+        if (adxVal >= 25) { 
+            score += sign * 15; 
+            reasons.push(`ADX ${adxVal.toFixed(1)} forte`); 
+        } else if (adxVal >= 20) { 
+            score += sign * 7; 
+            reasons.push(`ADX ${adxVal.toFixed(1)} formando`); 
+        } else { 
+            score -= sign * 15; 
+            reasons.push(`ADX ${adxVal.toFixed(1)} lateral/fraco`); 
+        }
+        
+        if (volumeAnomaly) {
+            if (volumeAnomaly.type === 'HIGH') { 
+                score += sign * 10; 
+                reasons.push('Volume alto'); 
+            } else if (volumeAnomaly.type === 'LOW') { 
+                score -= sign * 5; 
+                reasons.push('Volume baixo'); 
+            }
+        }
+        
+        if (smcStructure === 'BOS') { 
+            score += sign * 5; 
+            reasons.push('BOS confirmado'); 
+        }
+        
+        const FUNDING_PENALTY = 18;
+        const FUNDING_BONUS = 8;
+        if (direction === 'LONG') {
+            if (fundingRate > 0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding elevado (LONG)'); }
+            else if (fundingRate < 0) { score += FUNDING_BONUS; reasons.push('Funding negativo (LONG)'); }
+        } else if (direction === 'SHORT') {
+            if (fundingRate < -0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding negativo (SHORT)'); }
+            else if (fundingRate > 0) { score += FUNDING_BONUS; reasons.push('Funding positivo (SHORT)'); }
+        }
+        
+        if (divergence) {
+            if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { 
+                score += 15; 
+                reasons.push('Divergência RSI altista confirmada'); 
+            } else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { 
+                score += 15; 
+                reasons.push('Divergência RSI baixista confirmada'); 
+            }
+        }
+        
+        if (macroBlackout) { score -= 20; reasons.push('Macro blackout'); }
+        
+        if (openInterestTrend === 'INCREASING' && direction === 'LONG') { score += 5; reasons.push('OI crescente LONG'); }
+        else if (openInterestTrend === 'DECREASING' && direction === 'SHORT') { score += 5; reasons.push('OI decrescente SHORT'); }
+        
+        score = Math.min(100, Math.max(0, score));
+        let level = 'MEDIUM';
+        if (score >= 75) level = 'VERY_HIGH';
+        else if (score >= 60) level = 'HIGH';
+        else if (score >= 40) level = 'MEDIUM';
+        else if (score >= 20) level = 'LOW';
+        else level = 'VERY_LOW';
+        
+        let finalDirection = 'NEUTRO';
+        if (score >= scoreMinLong) finalDirection = 'LONG';
+        else if (score <= scoreMaxShort) finalDirection = 'SHORT';
+        return { score, level, direction: finalDirection, reasons };
+    };
+
+    // ----- FIM DAS FUNÇÕES DO INDICADOR -----
 
     // ----- VARIÁVEIS GLOBAIS -----
     let cachedData = {
@@ -459,12 +792,12 @@
         const blockStats = {};
         let totalCandlesProcessed = 0;
 
-        // ----- UPDATE INDICADORES (igual) -----
+        // ----- UPDATE INDICADORES -----
         const updateIndicators = (candles, currentTime) => {
             if (candles.length < 14) return;
             const closes = candles.map(c => c.close);
-            state.ema50_1H = indicator.calcEMA(closes, 50).slice(-1)[0] || closes[closes.length - 1];
-            state.atr_1H = indicator.calculateATR(candles, 14);
+            state.ema50_1H = calcEMA(closes, 50).slice(-1)[0] || closes[closes.length - 1];
+            state.atr_1H = calculateATR(candles, 14);
             state.atrHistory.push(state.atr_1H);
             if (state.atrHistory.length > 100) state.atrHistory.shift();
 
@@ -478,20 +811,20 @@
             avgLoss /= 14;
             state.rsi_1H = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
 
-            const adxData = indicator.calculateADX(candles);
+            const adxData = calculateADX(candles);
             state.adx = adxData;
 
             const last24 = candles.slice(-24);
-            state.vwap = indicator.calculateVWAP(last24);
+            state.vwap = calculateVWAP(last24);
 
-            const volAnomaly = indicator.detectVolumeAnomaly(candles, 20, 2.0);
+            const volAnomaly = detectVolumeAnomaly(candles, 20, 2.0);
             state.volumeAnomaly = volAnomaly;
 
-            indicator.updateSwingPoints(state);
+            updateSwingPoints(state);
 
             const relevant4H = state.candles4H.filter(c => c.time <= currentTime);
             if (relevant4H.length >= 20) {
-                state.htfStructure = indicator.detectHTFStructure(relevant4H);
+                state.htfStructure = detectHTFStructure(relevant4H);
             }
 
             let rsiForDiv = [];
@@ -515,7 +848,7 @@
                 }
             }
             if (rsiForDiv.length > 20) {
-                const div = indicator.detectRSIDivergence(candles, rsiForDiv);
+                const div = detectRSIDivergence(candles, rsiForDiv);
                 state.divergence = div;
             }
 
@@ -542,7 +875,7 @@
                     }
                 }
                 if (rsi4H.length > 20) {
-                    const div4H = indicator.detectRSIDivergence(relevant4H, rsi4H);
+                    const div4H = detectRSIDivergence(relevant4H, rsi4H);
                     state.divergence4H = div4H;
                 }
             }
@@ -565,8 +898,8 @@
             const getDir = (candles) => {
                 if (candles.length < 20) return 'NEUTRO';
                 const closes = candles.map(c => c.close);
-                const ema20Arr = indicator.calcEMA(closes, 20);
-                const ema50Arr = indicator.calcEMA(closes, 50);
+                const ema20Arr = calcEMA(closes, 20);
+                const ema50Arr = calcEMA(closes, 50);
                 const ema20 = ema20Arr.slice(-1)[0];
                 const ema50 = ema50Arr.slice(-1)[0];
                 const ema20Prev = ema20Arr.slice(-4, -3)[0] || ema20;
@@ -703,23 +1036,16 @@
             };
             const liqMap = { [symbol]: { longs: 0, shorts: 0 } };
 
-            const scoreData = indicator.computeScore(symbol, simAssets, liqMap, adxMin);
+            const scoreData = computeScore(symbol, simAssets, liqMap, adxMin);
             let score = scoreData.score;
             let direction = scoreData.direction;
             let blockReason = scoreData.blockReason;
 
-            // ===== CORREÇÃO DO RSI (BUG #3) =====
-            // Ajusta o score localmente para não comprar em sobrecompra e não vender em sobrevenda
-            const rsiNow = state.rsi_1H || 50;
-            if (rsiNow > 75) {
-                score = Math.max(0, score - 15); // penaliza LONG
-            } else if (rsiNow < 25) {
-                score = Math.min(100, score + 15); // incentiva LONG (ou penaliza SHORT)
-            }
-            // Recalcula a direção com base no score corrigido
+            // Ajuste RSI local (já corrigido no computeScore)
+            // Recalcula a direção com base no score já corrigido
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // ===== BOS HISTÓRICO (CORREÇÃO) =====
+            // BOS histórico + corpo forte
             const prevClose = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2].close : state.price;
             const lastSwingHigh = state.swingHighs.length > 0 ? state.swingHighs[state.swingHighs.length - 1] : null;
             const lastSwingLow = state.swingLows.length > 0 ? state.swingLows[state.swingLows.length - 1] : null;
@@ -747,7 +1073,7 @@
             if (adxValNow < adxMin && !blockReason) blockReason = `ADX < ${adxMin}`;
             if (state.macroBlackout && !blockReason) blockReason = 'Macro blackout';
 
-            // DI filter
+            // DI filter (já existente)
             if (primaryDirection === 'LONG' && state.adx.plusDI < state.adx.minusDI) {
                 blockReason = 'DI- > DI+ (Força Bearish)';
             } else if (primaryDirection === 'SHORT' && state.adx.minusDI < state.adx.plusDI) {
@@ -765,17 +1091,16 @@
                 blockReason = 'HTF 4H Bullish';
 
             if (!blockReason) {
-                const derivCheck = indicator.checkDerivativesFilter(state.fundingRate, state.oiDelta);
+                const derivCheck = checkDerivativesFilter(state.fundingRate, state.oiDelta);
                 if (!derivCheck.allow) blockReason = derivCheck.reason;
             }
 
-            // ===== GESTÃO DE POSIÇÃO (CORRIGIDA: TP1 contabilizado, sem trade fantasma) =====
+            // ===== GESTÃO DE POSIÇÃO (com TP1 contabilizado, sem trade fantasma) =====
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
                 const volatilityFactor = state.volatilityFactor || 1.0;
 
-                // Tempo máximo dinâmico
                 const dynamicMaxHold = (adxValNow > 30) ? maxHoldHours * 1.5 : maxHoldHours;
                 const holdHours = (candle.time - position.entryTime) / 3600000;
                 if (holdHours >= dynamicMaxHold) {
@@ -791,7 +1116,6 @@
                         } else if (!position.partialTaken && low <= position.stop) {
                             exitPrice = position.stop; closed = true; reason = 'Stop Loss';
                         } else if (high >= position.tp1 && !position.partialTaken) {
-                            // ===== TP1 ATINGIDO – CONTABILIZA LUCRO PARCIAL =====
                             position.partialTaken = true;
                             const halfSize = position.sizeRemaining * 0.5;
                             const partialPnlPct = (position.tp1 - position.entryPrice) / position.entryPrice * 100;
@@ -901,7 +1225,7 @@
                 }
 
                 if (!retestConfirmed && emaRetest) {
-                    const ema20 = indicator.calcEMA(state.candles1H.map(c => c.close), 20).slice(-1)[0] || state.price;
+                    const ema20 = calcEMA(state.candles1H.map(c => c.close), 20).slice(-1)[0] || state.price;
                     const emaDist = Math.abs(state.price - ema20) / (state.atr_1H || (state.price * 0.01));
                     retestConfirmed = emaDist < 0.5;
                     if (retestConfirmed) smcSetup = true;
@@ -982,13 +1306,12 @@
 
                     const totalTrades = winCount + lossCount;
                     const winRate = totalTrades > 0 ? winCount / totalTrades : 0.5;
-                    const kellyPct = indicator.KellyPositionSize(winRate, rrPonderado);
+                    const kellyPct = KellyPositionSize(winRate, rrPonderado);
                     const riskFraction = Math.min(kellyPct, 0.05);
                     const stopDistancePct = primaryDirection === 'LONG' ? (state.price - stop) / state.price : (stop - state.price) / state.price;
                     const positionSizeUSD = (riskFraction * equity) / stopDistancePct;
                     const sizeMultiplier = Math.min(positionSizeUSD / equity, 1.0);
 
-                    // ===== ABERTURA DE POSIÇÃO (SEM PUSH NA TABELA) =====
                     position = {
                         type: primaryDirection,
                         entryPrice: state.price,
@@ -1544,7 +1867,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.1.6 – bugs corrigidos: RSI, TP1, trade fantasma, BOS histórico.');
+    console.log('Backtest Engine v3.2.0 – todas as melhorias aplicadas.');
 </script>
 </body>
 </html>
