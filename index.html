@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v2.6)</title>
+    <title>Backtest Engine — SMC + MTF (v2.7)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v2.6)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.7)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache atual</button>
@@ -113,7 +113,7 @@
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v2.6 – SEM FEAR & GREED
+    // BACKTEST ENGINE v2.7 – CÓDIGO COMPLETO (CORREÇÃO DE TIMESTAMP)
     // ============================================================
 
     // ----- Variáveis globais de dados (cache em memória) -----
@@ -125,7 +125,7 @@
         mvrv: []
     };
 
-    // ----- FUNÇÕES AUXILIARES (mantidas) -----
+    // ----- FUNÇÕES AUXILIARES -----
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -607,7 +607,7 @@
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COMPLETO (com remoção de Fear & Greed) =====
+    // ===== BACKTEST COMPLETO (com correção de timestamp) =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -628,7 +628,7 @@
         const startDateStr = new Date(startTime).toISOString().slice(0, 10);
         const endDateStr = new Date(endTime).toISOString().slice(0, 10);
 
-        console.log(`[Backtest] ${symbol} - ${days} dias (máx 1000)`);
+        console.log(`[Backtest] ${symbol} - ${days} dias (${new Date(startTime).toISOString()} a ${new Date(endTime).toISOString()})`);
 
         let candles1h = cachedData.candles1h;
         let candles4h = cachedData.candles4h;
@@ -639,34 +639,50 @@
         const needFetch = candles1h.length === 0;
         if (needFetch) {
             console.log('Cache vazio. Buscando dados da API...');
-            [candles1h, candles4h, fundingHist, oiHist, mvrvHist] = await Promise.all([
-                fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
-                fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
-                fetchHistoricalFunding(symbol, startTime, endTime),
-                fetchHistoricalOI(symbol, startTime, endTime),
-                fetchHistoricalMVRV(startDateStr, endDateStr)
-            ]);
-            cachedData.candles1h = candles1h;
-            cachedData.candles4h = candles4h;
-            cachedData.funding = fundingHist;
-            cachedData.oi = oiHist;
-            cachedData.mvrv = mvrvHist;
+            try {
+                [candles1h, candles4h, fundingHist, oiHist, mvrvHist] = await Promise.all([
+                    fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
+                    fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
+                    fetchHistoricalFunding(symbol, startTime, endTime),
+                    fetchHistoricalOI(symbol, startTime, endTime),
+                    fetchHistoricalMVRV(startDateStr, endDateStr)
+                ]);
+                cachedData.candles1h = candles1h;
+                cachedData.candles4h = candles4h;
+                cachedData.funding = fundingHist;
+                cachedData.oi = oiHist;
+                cachedData.mvrv = mvrvHist;
+            } catch (e) {
+                return { trades: [], summary: { error: `Erro ao buscar dados: ${e.message}` } };
+            }
         } else {
             console.log('Usando dados do cache (importados).');
-            candles1h = candles1h.filter(c => c.time >= startTime/1000 && c.time <= endTime/1000);
-            candles4h = candles4h.filter(c => c.time >= startTime/1000 && c.time <= endTime/1000);
+            // CORREÇÃO: comparar timestamps em milissegundos
+            candles1h = candles1h.filter(c => c.time >= startTime && c.time <= endTime);
+            candles4h = candles4h.filter(c => c.time >= startTime && c.time <= endTime);
             fundingHist = fundingHist.filter(f => f.time >= startTime && f.time <= endTime);
             oiHist = oiHist.filter(o => o.time >= startTime && o.time <= endTime);
-            mvrvHist = mvrvHist.filter(m => m.time >= startTime/1000 && m.time <= endTime/1000);
+            mvrvHist = mvrvHist.filter(m => m.time >= startTime/1000 && m.time <= endTime/1000); // MVRV usa segundos
         }
 
         console.log(`Obtidos ${candles1h.length} candles 1h, ${candles4h.length} candles 4h`);
 
+        // Validação flexível
         const requiredCandles = days * 24;
         let minCandles = 20;
         if (days >= 2) minCandles = 50;
+
         if (candles1h.length < minCandles) {
-            return { trades: [], summary: { error: `Dados insuficientes: obtidos ${candles1h.length} velas, necessário ${minCandles}.` } };
+            let msg = `Dados insuficientes: obtidos ${candles1h.length} velas, necessário ${minCandles}.`;
+            if (!needFetch && cachedData.candles1h.length > 0) {
+                const lastTime = cachedData.candles1h[cachedData.candles1h.length - 1]?.time;
+                if (lastTime) {
+                    const lastDate = new Date(lastTime).toLocaleDateString();
+                    msg += ` O dado mais recente no cache é de ${lastDate}. `;
+                }
+                msg += `Por favor, clique em "Buscar e Exportar Dados Brutos (1000 dias)" para obter dados atualizados, ou reduza o número de dias.`;
+            }
+            return { trades: [], summary: { error: msg } };
         }
 
         const fundingCoverage = fundingHist.length / (days * 24);
@@ -679,7 +695,7 @@
         }
         if (mvrvHist.length === 0) console.warn('Dados MVRV não disponíveis – filtro macro desativado.');
 
-        const filteredCandles = candles1h.filter(c => c.time >= startTime / 1000 && c.time <= endTime / 1000);
+        const filteredCandles = candles1h; // já filtrados
         if (filteredCandles.length < minCandles) {
             return { trades: [], summary: { error: `Dados insuficientes após filtragem: ${filteredCandles.length} velas.` } };
         }
@@ -1389,7 +1405,7 @@
         e.target.value = '';
     });
 
-    console.log('Backtest Engine v2.6 carregado – Fear & Greed removido.');
+    console.log('Backtest Engine v2.7 carregado – Fear & Greed removido, correção de timestamp aplicada.');
 </script>
 </body>
 </html>
