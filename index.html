@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.1.3)</title>
+    <title>Backtest Engine — SMC + MTF (v3.1.4)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -50,7 +50,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.1.3)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.1.4)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -111,13 +111,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.1.3:</strong> Stop Loss sempre ativo, Trailing após TP1 com breakeven floor, limite de tempo (72h), sign-fix no confidence, BOS simétrico, retest por ATR, Bollinger (0.6), doji, volume, MTF gradiente, funding simétrico, ADX cacheado, Z-score parametrizado.
+        <strong>v3.1.4:</strong> Stop Loss sempre ativo, Trailing após TP1 com breakeven floor, limite de tempo (72h), sign-fix no confidence, BOS simétrico, retest por ATR, Bollinger (0.6), doji, volume, MTF gradiente, funding simétrico, ADX cacheado, Z-score parametrizado. Relatório inclui análise de Stop Loss por direção.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.1.3 – CÓDIGO COMPLETO
+    // BACKTEST ENGINE v3.1.4 – CÓDIGO COMPLETO
     // ============================================================
 
     import * as indicator from './indicator.js';
@@ -133,7 +133,7 @@
     let lastResult = null;
     let lastParams = null;
 
-    // ----- FETCH COM PAGINAÇÃO -----
+    // ----- FETCH COM PAGINAÇÃO (mesmo código da v3.1.3) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -1064,7 +1064,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO =====
+    // ===== GERAR RELATÓRIO (com análise de Stop Loss por direção) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1093,12 +1093,28 @@
         const longPnl = longs.reduce((s, t) => s + parseFloat(t.pnlPct), 0);
         const shortPnl = shorts.reduce((s, t) => s + parseFloat(t.pnlPct), 0);
 
+        // ===== BREAKDOWN DE STOP LOSS POR DIREÇÃO =====
+        const stopLossByDirection = {
+            LONG: closed.filter(t => t.direction === 'LONG' && t.reason === 'Stop Loss').length,
+            SHORT: closed.filter(t => t.direction === 'SHORT' && t.reason === 'Stop Loss').length
+        };
+        const totalByDirection = {
+            LONG: longs.length,
+            SHORT: shorts.length
+        };
+        const stopLossRate = {
+            LONG: totalByDirection.LONG > 0 ? (stopLossByDirection.LONG / totalByDirection.LONG * 100) : 0,
+            SHORT: totalByDirection.SHORT > 0 ? (stopLossByDirection.SHORT / totalByDirection.SHORT * 100) : 0
+        };
+
+        // Motivos de saída
         const reasons = {};
         closed.forEach(t => {
             const r = t.reason || 'Desconhecido';
             reasons[r] = (reasons[r] || 0) + 1;
         });
 
+        // Performance mensal
         const monthly = {};
         closed.forEach(t => {
             const month = new Date(t.entryTime).toISOString().slice(0, 7);
@@ -1203,6 +1219,12 @@
             <div class="grid">
                 <div class="card"><div class="label">Longs</div><div class="value">${longs.length}</div><div>Winrate: ${longWinrate.toFixed(2)}%</div><div>P&L: ${longPnl.toFixed(2)}%</div></div>
                 <div class="card"><div class="label">Shorts</div><div class="value">${shorts.length}</div><div>Winrate: ${shortWinrate.toFixed(2)}%</div><div>P&L: ${shortPnl.toFixed(2)}%</div></div>
+            </div>
+
+            <h2>🛑 Stop Loss por Direção</h2>
+            <div class="grid">
+                <div class="card"><div class="label">LONG Stop Loss</div><div class="value">${stopLossByDirection.LONG}</div><div>Taxa: ${stopLossRate.LONG.toFixed(1)}%</div></div>
+                <div class="card"><div class="label">SHORT Stop Loss</div><div class="value">${stopLossByDirection.SHORT}</div><div>Taxa: ${stopLossRate.SHORT.toFixed(1)}%</div></div>
             </div>
 
             <h2>🕒 Distribuição de Duração</h2>
@@ -1475,7 +1497,7 @@
         generateReport(trades, summary, symbol, days, lastParams);
     });
 
-    console.log('Backtest Engine v3.1.3 carregado – gestão de posição corrigida.');
+    console.log('Backtest Engine v3.1.4 carregado – análise de Stop Loss por direção incluída.');
 </script>
 </body>
 </html>
