@@ -510,42 +510,35 @@
     };
 
     // ----- EXPORTAÇÃO (limitada a 1000 dias) -----
-    function exportData() {
-        const now = Date.now();
-        const limitTime = now - 1000 * 24 * 60 * 60 * 1000;
+    // ----- EXPORTAÇÃO (dados brutos, sem filtro) -----
+function exportData() {
+    const datasets = {
+        candles1h: cachedData.candles1h,
+        candles4h: cachedData.candles4h,
+        funding: cachedData.funding,
+        oi: cachedData.oi,
+        mvrv: cachedData.mvrv,
+        feargreed: cachedData.feargreed
+    };
 
-        const filterByTime = (arr, timeKey = 'time') => {
-            if (!Array.isArray(arr)) return [];
-            return arr.filter(item => item[timeKey] >= limitTime);
-        };
-
-        const datasets = {
-            candles1h: filterByTime(cachedData.candles1h),
-            candles4h: filterByTime(cachedData.candles4h),
-            funding: filterByTime(cachedData.funding),
-            oi: filterByTime(cachedData.oi),
-            mvrv: filterByTime(cachedData.mvrv),
-            feargreed: filterByTime(cachedData.feargreed)
-        };
-
-        let exportedCount = 0;
-        for (const [key, data] of Object.entries(datasets)) {
-            if (data.length === 0) continue;
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${key}_${new Date().toISOString().slice(0,10)}_ultimos1000dias.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            exportedCount++;
-        }
-        if (exportedCount === 0) {
-            alert('Nenhum dado em cache para exportar. Execute um backtest primeiro.');
-        } else {
-            alert(`${exportedCount} arquivo(s) exportado(s) com os últimos 1000 dias de dados.`);
-        }
+    let exportedCount = 0;
+    for (const [key, data] of Object.entries(datasets)) {
+        if (data.length === 0) continue;
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${key}_${new Date().toISOString().slice(0,10)}_bruto.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        exportedCount++;
     }
+    if (exportedCount === 0) {
+        alert('Nenhum dado em cache para exportar. Execute um backtest primeiro.');
+    } else {
+        alert(`${exportedCount} arquivo(s) exportado(s) com dados brutos (todos os períodos).`);
+    }
+}
 
     // ----- IMPORTAÇÃO -----
     function importData(files) {
