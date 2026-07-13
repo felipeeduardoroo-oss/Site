@@ -20,6 +20,8 @@
         .btn-run:disabled { opacity:.6; cursor:not-allowed; transform:none; }
         .btn-io { background:#2a2a44; color:#e6e8eb; border:1px solid #444; padding:8px 20px; border-radius:8px; font-weight:500; font-size:0.9rem; cursor:pointer; margin:4px; }
         .btn-io:hover { background:#3a3a5a; }
+        .btn-io.primary { background:#7c3aed; border-color:#7c3aed; }
+        .btn-io.primary:hover { background:#6a2ad0; }
         .status-bar { margin:12px 0 16px; font-size:.9rem; color:#8b949e; min-height:1.5em; }
         .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:16px 0 24px; }
         .stat-card { background:#0f1117; border:1px solid #2a2a44; border-radius:10px; padding:16px; text-align:center; }
@@ -46,10 +48,11 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v2.4)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.5)</h1>
 
     <div class="io-section">
-        <button class="btn-io" id="exportBtn">📤 Exportar dados (últimos 1000 dias)</button>
+        <button class="btn-io" id="exportBtn">📤 Exportar cache atual</button>
+        <button class="btn-io primary" id="fetchExportBtn">📥 Buscar e Exportar Dados Brutos (1000 dias)</button>
         <label class="btn-io" style="cursor:pointer;">📥 Importar dados
             <input type="file" id="importInput" multiple accept=".json" style="display:none;" />
         </label>
@@ -104,13 +107,14 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics), Fear & Greed (alternative.me). Carteira inicial: $10.000 USD.<br>
-        <strong>Exportação:</strong> Cada indicador é salvo em um arquivo JSON separado, contendo apenas os dados dos últimos 1000 dias (≈2,7 anos). Use a importação para carregar dados previamente salvos.
+        <strong>Botão "Buscar e Exportar":</strong> Coleta os dados dos últimos 1000 dias diretamente das APIs, armazena no cache e exporta em arquivos JSON brutos (sem filtro).<br>
+        <strong>Exportar cache atual:</strong> Exporta os dados que estão no cache (podem ser de qualquer período já coletado).
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v2.4 – CÓDIGO COMPLETO
+    // BACKTEST ENGINE v2.5 – CÓDIGO COMPLETO
     // ============================================================
 
     // ----- Variáveis globais de dados (cache em memória) -----
@@ -509,69 +513,88 @@
         return null;
     };
 
-    // ----- EXPORTAÇÃO (limitada a 1000 dias) -----
-    // ----- EXPORTAÇÃO (dados brutos, sem filtro) -----
-function exportData() {
-    const datasets = {
-        candles1h: cachedData.candles1h,
-        candles4h: cachedData.candles4h,
-        funding: cachedData.funding,
-        oi: cachedData.oi,
-        mvrv: cachedData.mvrv,
-        feargreed: cachedData.feargreed
-    };
+    // ----- FUNÇÃO PARA BUSCAR DADOS BRUTOS DE 1000 DIAS -----
+    async function fetchRawData(symbol = 'BTCUSDT') {
+        const days = 1000;
+        const now = Date.now();
+        const startTime = now - days * 24 * 60 * 60 * 1000;
+        const endTime = now;
+        const startDateStr = new Date(startTime).toISOString().slice(0, 10);
+        const endDateStr = new Date(endTime).toISOString().slice(0, 10);
 
-    let exportedCount = 0;
-    for (const [key, data] of Object.entries(datasets)) {
-        if (data.length === 0) continue;
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${key}_${new Date().toISOString().slice(0,10)}_bruto.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        exportedCount++;
-    }
-    if (exportedCount === 0) {
-        alert('Nenhum dado em cache para exportar. Execute um backtest primeiro.');
-    } else {
-        alert(`${exportedCount} arquivo(s) exportado(s) com dados brutos (todos os períodos).`);
-    }
-}
+        console.log(`[FetchRaw] Buscando ${days} dias para ${symbol}...`);
 
-    // ----- IMPORTAÇÃO -----
-    function importData(files) {
-        const fileMap = {
-            'candles1h': 'candles1h',
-            'candles4h': 'candles4h',
-            'funding': 'funding',
-            'oi': 'oi',
-            'mvrv': 'mvrv',
-            'feargreed': 'feargreed'
+        const [candles1h, candles4h, funding, oi, mvrv, feargreed] = await Promise.all([
+            fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
+            fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
+            fetchHistoricalFunding(symbol, startTime, endTime),
+            fetchHistoricalOI(symbol, startTime, endTime),
+            fetchHistoricalMVRV(startDateStr, endDateStr),
+            fetchFearGreedHistorical(500)
+        ]);
+
+        return { candles1h, candles4h, funding, oi, mvrv, feargreed };
+    }
+
+    // ----- FUNÇÃO DE EXPORTAÇÃO (dados brutos do cache) -----
+    function exportData() {
+        const datasets = {
+            candles1h: cachedData.candles1h,
+            candles4h: cachedData.candles4h,
+            funding: cachedData.funding,
+            oi: cachedData.oi,
+            mvrv: cachedData.mvrv,
+            feargreed: cachedData.feargreed
         };
-        const promises = [];
-        for (const file of files) {
-            const name = file.name.split('_')[0];
-            if (fileMap[name]) {
-                const p = file.text().then(text => {
-                    try {
-                        const data = JSON.parse(text);
-                        if (Array.isArray(data)) {
-                            cachedData[fileMap[name]] = data;
-                            console.log(`✅ ${name} importado: ${data.length} registros`);
-                        }
-                    } catch(e) { console.warn(`Erro ao importar ${name}`, e); }
-                });
-                promises.push(p);
-            } else {
-                console.warn(`Arquivo ${file.name} não corresponde a um indicador conhecido.`);
-            }
+
+        let exportedCount = 0;
+        for (const [key, data] of Object.entries(datasets)) {
+            if (data.length === 0) continue;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${key}_${new Date().toISOString().slice(0,10)}_bruto.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            exportedCount++;
         }
-        return Promise.all(promises);
+        if (exportedCount === 0) {
+            alert('Nenhum dado em cache para exportar. Execute uma busca primeiro.');
+        } else {
+            alert(`${exportedCount} arquivo(s) exportado(s) com dados brutos (todos os períodos armazenados).`);
+        }
     }
 
-    // ----- BACKTEST COMPLETO -----
+    // ----- FUNÇÃO PARA BUSCAR E EXPORTAR (1000 dias) -----
+    async function fetchAndExport() {
+        const symbol = document.getElementById('symbolSelect').value;
+        const status = document.getElementById('status');
+        status.textContent = '⏳ Buscando dados de 1000 dias...';
+
+        try {
+            const data = await fetchRawData(symbol);
+
+            // Armazena no cache
+            cachedData.candles1h = data.candles1h;
+            cachedData.candles4h = data.candles4h;
+            cachedData.funding = data.funding;
+            cachedData.oi = data.oi;
+            cachedData.mvrv = data.mvrv;
+            cachedData.feargreed = data.feargreed;
+
+            console.log(`Dados armazenados: 1h=${data.candles1h.length}, 4h=${data.candles4h.length}, funding=${data.funding.length}, OI=${data.oi.length}, MVRV=${data.mvrv.length}, FG=${data.feargreed.length}`);
+
+            status.textContent = `✅ Dados de 1000 dias coletados. Exportando...`;
+            exportData();
+            status.textContent = `✅ Dados de 1000 dias exportados com sucesso!`;
+        } catch (err) {
+            console.error(err);
+            status.textContent = `❌ Erro na coleta: ${err.message}`;
+        }
+    }
+
+    // ===== BACKTEST COMPLETO =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -1218,7 +1241,7 @@ function exportData() {
         return { trades, summary };
     }
 
-    // ----- UI -----
+    // ===== UI =====
     const getParam = (id) => {
         const el = document.getElementById(id);
         if (el.type === 'checkbox') return el.checked;
@@ -1350,16 +1373,37 @@ function exportData() {
     });
 
     document.getElementById('exportBtn').addEventListener('click', exportData);
+    document.getElementById('fetchExportBtn').addEventListener('click', fetchAndExport);
 
     document.getElementById('importInput').addEventListener('change', async (e) => {
         const files = e.target.files;
         if (files.length === 0) return;
-        await importData(files);
+        const fileMap = {
+            'candles1h': 'candles1h',
+            'candles4h': 'candles4h',
+            'funding': 'funding',
+            'oi': 'oi',
+            'mvrv': 'mvrv',
+            'feargreed': 'feargreed'
+        };
+        for (const file of files) {
+            const name = file.name.split('_')[0];
+            if (fileMap[name]) {
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    if (Array.isArray(data)) {
+                        cachedData[fileMap[name]] = data;
+                        console.log(`✅ ${name} importado: ${data.length} registros`);
+                    }
+                } catch(e) { console.warn(`Erro ao importar ${name}`, e); }
+            }
+        }
         document.getElementById('status').textContent = `✅ ${files.length} arquivo(s) importado(s) com sucesso.`;
         e.target.value = '';
     });
 
-    console.log('Backtest Engine v2.4 carregado – completo.');
+    console.log('Backtest Engine v2.5 carregado – completo e funcional.');
 </script>
 </body>
 </html>
