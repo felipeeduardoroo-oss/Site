@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v2.5)</title>
+    <title>Backtest Engine — SMC + MTF (v2.6)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v2.5)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.6)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache atual</button>
@@ -106,15 +106,14 @@
     <div class="diagnostic" id="diagnostic" style="display:none;"><strong>🔍 Diagnóstico de bloqueios</strong><div id="blockStats"></div></div>
 
     <div class="legend">
-        <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics), Fear & Greed (alternative.me). Carteira inicial: $10.000 USD.<br>
-        <strong>Botão "Buscar e Exportar":</strong> Coleta os dados dos últimos 1000 dias diretamente das APIs, armazena no cache e exporta em arquivos JSON brutos (sem filtro).<br>
-        <strong>Exportar cache atual:</strong> Exporta os dados que estão no cache (podem ser de qualquer período já coletado).
+        <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
+        <strong>Nota:</strong> O indicador Fear & Greed foi removido por falta de dados históricos confiáveis para 1000 dias.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v2.5 – CÓDIGO COMPLETO
+    // BACKTEST ENGINE v2.6 – SEM FEAR & GREED
     // ============================================================
 
     // ----- Variáveis globais de dados (cache em memória) -----
@@ -123,11 +122,10 @@
         candles4h: [],
         funding: [],
         oi: [],
-        mvrv: [],
-        feargreed: []
+        mvrv: []
     };
 
-    // ----- FUNÇÕES AUXILIARES -----
+    // ----- FUNÇÕES AUXILIARES (mantidas) -----
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -376,7 +374,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ----- FETCH COM PAGINAÇÃO E FALLBACK -----
+    // ----- FETCH COM PAGINAÇÃO E FALLBACK (sem Fear & Greed) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -495,17 +493,6 @@
         }
     };
 
-    const fetchFearGreedHistorical = async (limit = 1000) => {
-        const url = `https://api.alternative.me/fng/?limit=${limit}`;
-        try {
-            const data = await fetchWithRetry(url, {}, 3);
-            return data?.data?.map(d => ({ time: new Date(d.timestamp).getTime() / 1000, value: parseInt(d.value) })) || [];
-        } catch (e) {
-            console.warn('Falha ao obter Fear & Greed, usando valor padrão 50');
-            return [{ time: Date.now() / 1000, value: 50 }];
-        }
-    };
-
     const findMostRecent = (arr, cond) => {
         for (let i = arr.length - 1; i >= 0; i--) {
             if (cond(arr[i])) return arr[i];
@@ -513,7 +500,7 @@
         return null;
     };
 
-    // ----- FUNÇÃO PARA BUSCAR DADOS BRUTOS DE 1000 DIAS -----
+    // ----- FUNÇÃO PARA BUSCAR DADOS BRUTOS DE 1000 DIAS (sem Fear & Greed) -----
     async function fetchRawData(symbol = 'BTCUSDT') {
         const days = 1000;
         const now = Date.now();
@@ -524,27 +511,25 @@
 
         console.log(`[FetchRaw] Buscando ${days} dias para ${symbol}...`);
 
-        const [candles1h, candles4h, funding, oi, mvrv, feargreed] = await Promise.all([
+        const [candles1h, candles4h, funding, oi, mvrv] = await Promise.all([
             fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
             fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
             fetchHistoricalFunding(symbol, startTime, endTime),
             fetchHistoricalOI(symbol, startTime, endTime),
-            fetchHistoricalMVRV(startDateStr, endDateStr),
-            fetchFearGreedHistorical(500)
+            fetchHistoricalMVRV(startDateStr, endDateStr)
         ]);
 
-        return { candles1h, candles4h, funding, oi, mvrv, feargreed };
+        return { candles1h, candles4h, funding, oi, mvrv };
     }
 
-    // ----- FUNÇÃO DE EXPORTAÇÃO (dados brutos do cache) -----
+    // ----- EXPORTAÇÃO (dados brutos do cache, sem Fear & Greed) -----
     function exportData() {
         const datasets = {
             candles1h: cachedData.candles1h,
             candles4h: cachedData.candles4h,
             funding: cachedData.funding,
             oi: cachedData.oi,
-            mvrv: cachedData.mvrv,
-            feargreed: cachedData.feargreed
+            mvrv: cachedData.mvrv
         };
 
         let exportedCount = 0;
@@ -566,7 +551,7 @@
         }
     }
 
-    // ----- FUNÇÃO PARA BUSCAR E EXPORTAR (1000 dias) -----
+    // ----- BUSCAR E EXPORTAR (1000 dias) -----
     async function fetchAndExport() {
         const symbol = document.getElementById('symbolSelect').value;
         const status = document.getElementById('status');
@@ -575,15 +560,13 @@
         try {
             const data = await fetchRawData(symbol);
 
-            // Armazena no cache
             cachedData.candles1h = data.candles1h;
             cachedData.candles4h = data.candles4h;
             cachedData.funding = data.funding;
             cachedData.oi = data.oi;
             cachedData.mvrv = data.mvrv;
-            cachedData.feargreed = data.feargreed;
 
-            console.log(`Dados armazenados: 1h=${data.candles1h.length}, 4h=${data.candles4h.length}, funding=${data.funding.length}, OI=${data.oi.length}, MVRV=${data.mvrv.length}, FG=${data.feargreed.length}`);
+            console.log(`Dados armazenados: 1h=${data.candles1h.length}, 4h=${data.candles4h.length}, funding=${data.funding.length}, OI=${data.oi.length}, MVRV=${data.mvrv.length}`);
 
             status.textContent = `✅ Dados de 1000 dias coletados. Exportando...`;
             exportData();
@@ -594,7 +577,37 @@
         }
     }
 
-    // ===== BACKTEST COMPLETO =====
+    // ----- IMPORTAÇÃO (sem Fear & Greed) -----
+    function importData(files) {
+        const fileMap = {
+            'candles1h': 'candles1h',
+            'candles4h': 'candles4h',
+            'funding': 'funding',
+            'oi': 'oi',
+            'mvrv': 'mvrv'
+        };
+        const promises = [];
+        for (const file of files) {
+            const name = file.name.split('_')[0];
+            if (fileMap[name]) {
+                const p = file.text().then(text => {
+                    try {
+                        const data = JSON.parse(text);
+                        if (Array.isArray(data)) {
+                            cachedData[fileMap[name]] = data;
+                            console.log(`✅ ${name} importado: ${data.length} registros`);
+                        }
+                    } catch(e) { console.warn(`Erro ao importar ${name}`, e); }
+                });
+                promises.push(p);
+            } else {
+                console.warn(`Arquivo ${file.name} não corresponde a um indicador conhecido (ignorado).`);
+            }
+        }
+        return Promise.all(promises);
+    }
+
+    // ===== BACKTEST COMPLETO (com remoção de Fear & Greed) =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -617,31 +630,27 @@
 
         console.log(`[Backtest] ${symbol} - ${days} dias (máx 1000)`);
 
-        // Usa cache se disponível, senão busca
         let candles1h = cachedData.candles1h;
         let candles4h = cachedData.candles4h;
         let fundingHist = cachedData.funding;
         let oiHist = cachedData.oi;
         let mvrvHist = cachedData.mvrv;
-        let fgHist = cachedData.feargreed;
 
         const needFetch = candles1h.length === 0;
         if (needFetch) {
             console.log('Cache vazio. Buscando dados da API...');
-            [candles1h, candles4h, fundingHist, oiHist, mvrvHist, fgHist] = await Promise.all([
+            [candles1h, candles4h, fundingHist, oiHist, mvrvHist] = await Promise.all([
                 fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
                 fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
                 fetchHistoricalFunding(symbol, startTime, endTime),
                 fetchHistoricalOI(symbol, startTime, endTime),
-                fetchHistoricalMVRV(startDateStr, endDateStr),
-                fetchFearGreedHistorical(500)
+                fetchHistoricalMVRV(startDateStr, endDateStr)
             ]);
             cachedData.candles1h = candles1h;
             cachedData.candles4h = candles4h;
             cachedData.funding = fundingHist;
             cachedData.oi = oiHist;
             cachedData.mvrv = mvrvHist;
-            cachedData.feargreed = fgHist;
         } else {
             console.log('Usando dados do cache (importados).');
             candles1h = candles1h.filter(c => c.time >= startTime/1000 && c.time <= endTime/1000);
@@ -649,7 +658,6 @@
             fundingHist = fundingHist.filter(f => f.time >= startTime && f.time <= endTime);
             oiHist = oiHist.filter(o => o.time >= startTime && o.time <= endTime);
             mvrvHist = mvrvHist.filter(m => m.time >= startTime/1000 && m.time <= endTime/1000);
-            fgHist = fgHist.filter(f => f.time >= startTime/1000 && f.time <= endTime/1000);
         }
 
         console.log(`Obtidos ${candles1h.length} candles 1h, ${candles4h.length} candles 4h`);
@@ -670,7 +678,6 @@
             console.warn(`Cobertura de OI baixa: ${(oiCoverage*100).toFixed(1)}% – os filtros podem não funcionar corretamente.`);
         }
         if (mvrvHist.length === 0) console.warn('Dados MVRV não disponíveis – filtro macro desativado.');
-        if (fgHist.length === 0) console.warn('Dados Fear & Greed não disponíveis – filtro macro desativado.');
 
         const filteredCandles = candles1h.filter(c => c.time >= startTime / 1000 && c.time <= endTime / 1000);
         if (filteredCandles.length < minCandles) {
@@ -683,7 +690,7 @@
             currentBOS: 'NEUTRAL', htfStructure: { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity },
             mtfConfluence: null, adx: 0, divergence: null, divergence4H: null,
             volumeAnomaly: null, macroBlackout: false, vwap: 0, price: 0,
-            fundingRate: 0, oiDelta: 0, mvrv: null, fearGreedData: { value: 50 },
+            fundingRate: 0, oiDelta: 0, mvrv: null,
             fundingHistory: [], oiDeltaHistory: [], bandwidthHistory: []
         };
 
@@ -903,8 +910,7 @@
                     htfStructure: state.htfStructure,
                     fundingRate: state.fundingRate,
                     oiDelta: state.oiDelta,
-                    mvrv: state.mvrv,
-                    fearGreedData: state.fearGreedData
+                    mvrv: state.mvrv
                 }
             };
             const liqMap = { [symbol]: { longs: 0, shorts: 0 } };
@@ -1378,32 +1384,12 @@
     document.getElementById('importInput').addEventListener('change', async (e) => {
         const files = e.target.files;
         if (files.length === 0) return;
-        const fileMap = {
-            'candles1h': 'candles1h',
-            'candles4h': 'candles4h',
-            'funding': 'funding',
-            'oi': 'oi',
-            'mvrv': 'mvrv',
-            'feargreed': 'feargreed'
-        };
-        for (const file of files) {
-            const name = file.name.split('_')[0];
-            if (fileMap[name]) {
-                try {
-                    const text = await file.text();
-                    const data = JSON.parse(text);
-                    if (Array.isArray(data)) {
-                        cachedData[fileMap[name]] = data;
-                        console.log(`✅ ${name} importado: ${data.length} registros`);
-                    }
-                } catch(e) { console.warn(`Erro ao importar ${name}`, e); }
-            }
-        }
+        await importData(files);
         document.getElementById('status').textContent = `✅ ${files.length} arquivo(s) importado(s) com sucesso.`;
         e.target.value = '';
     });
 
-    console.log('Backtest Engine v2.5 carregado – completo e funcional.');
+    console.log('Backtest Engine v2.6 carregado – Fear & Greed removido.');
 </script>
 </body>
 </html>
