@@ -1,9 +1,8 @@
 // ============================================================
-// INDICATOR MODULE – SMC + MTF (v3.0)
+// INDICATOR MODULE – SMC + MTF (v3.1)
 // Todas as funções de análise e sinais
 // ============================================================
 
-// ----- FUNÇÕES AUXILIARES -----
 export const calcEMA = (data, period) => {
     if (!data || data.length === 0) return [];
     const result = [];
@@ -222,20 +221,47 @@ export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     };
 };
 
-export const calculateConfidenceScore = ({ mtfAligned, adx, volumeAnomaly, fundingRate, openInterestTrend, divergence, macroBlackout, smcStructure, direction, scoreMinLong = 60, scoreMaxShort = 40 }) => {
+export const calculateConfidenceScore = ({ 
+    mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
+    openInterestTrend, divergence, macroBlackout, smcStructure, 
+    direction, scoreMinLong = 60, scoreMaxShort = 40 
+}) => {
     let score = 50;
     const reasons = [];
-    if (mtfAligned) { score += 18; reasons.push('MTF alinhado'); } else { score -= 12; reasons.push('MTF desalinhado'); }
+    
+    // MTF com gradiente
+    if (mtfAligned) { 
+        score += 18; 
+        reasons.push('MTF alinhado'); 
+    } else if (mtfAlignedParcial) { 
+        score += 8; 
+        reasons.push('MTF parcialmente alinhado'); 
+    } else { 
+        score -= 12; 
+        reasons.push('MTF desalinhado'); 
+    }
+    
     const adxVal = typeof adx === 'object' ? adx.adx : adx;
-    if (adxVal >= 23) { score += 15; reasons.push(`ADX ${adxVal.toFixed(1)} forte`); } else if (adxVal >= 18) { score += 7; reasons.push(`ADX ${adxVal.toFixed(1)} formando`); } else { score -= 10; reasons.push(`ADX ${adxVal.toFixed(1)} lateral`); }
+    if (adxVal >= 23) { score += 15; reasons.push(`ADX ${adxVal.toFixed(1)} forte`); } 
+    else if (adxVal >= 18) { score += 7; reasons.push(`ADX ${adxVal.toFixed(1)} formando`); } 
+    else { score -= 10; reasons.push(`ADX ${adxVal.toFixed(1)} lateral`); }
+    
     if (volumeAnomaly) {
-        if (volumeAnomaly.type === 'HIGH') { score += 10; reasons.push('Volume alto'); } else if (volumeAnomaly.type === 'LOW') { score -= 5; reasons.push('Volume baixo'); }
+        if (volumeAnomaly.type === 'HIGH') { score += 10; reasons.push('Volume alto'); } 
+        else if (volumeAnomaly.type === 'LOW') { score -= 5; reasons.push('Volume baixo'); }
     }
+    
+    // Simetrizar penalidade de funding
+    const FUNDING_PENALTY = 18;
+    const FUNDING_BONUS = 8;
     if (direction === 'LONG') {
-        if (fundingRate > 0.0006) { score -= 15; reasons.push('Funding elevado (LONG)'); } else if (fundingRate < 0) { score += 8; reasons.push('Funding negativo (LONG)'); }
+        if (fundingRate > 0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding elevado (LONG)'); }
+        else if (fundingRate < 0) { score += FUNDING_BONUS; reasons.push('Funding negativo (LONG)'); }
     } else if (direction === 'SHORT') {
-        if (fundingRate < -0.0006) { score -= 20; reasons.push('Funding negativo (SHORT)'); } else if (fundingRate > 0) { score += 8; reasons.push('Funding positivo (SHORT)'); }
+        if (fundingRate < -0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding negativo (SHORT)'); }
+        else if (fundingRate > 0) { score += FUNDING_BONUS; reasons.push('Funding positivo (SHORT)'); }
     }
+    
     if (divergence) {
         if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { score += 10; reasons.push('Divergência alta'); }
         else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { score += 10; reasons.push('Divergência baixa'); }
@@ -244,6 +270,7 @@ export const calculateConfidenceScore = ({ mtfAligned, adx, volumeAnomaly, fundi
     if (smcStructure === 'BOS') { score += 5; reasons.push('BOS confirmado'); }
     if (openInterestTrend === 'INCREASING' && direction === 'LONG') { score += 5; reasons.push('OI crescente LONG'); }
     else if (openInterestTrend === 'DECREASING' && direction === 'SHORT') { score += 5; reasons.push('OI decrescente SHORT'); }
+    
     score = Math.min(100, Math.max(0, score));
     let level = 'MEDIUM';
     if (score >= 75) level = 'VERY_HIGH';
@@ -251,6 +278,7 @@ export const calculateConfidenceScore = ({ mtfAligned, adx, volumeAnomaly, fundi
     else if (score >= 40) level = 'MEDIUM';
     else if (score >= 20) level = 'LOW';
     else level = 'VERY_LOW';
+    
     let finalDirection = 'NEUTRO';
     if (score >= scoreMinLong) finalDirection = 'LONG';
     else if (score <= scoreMaxShort) finalDirection = 'SHORT';
