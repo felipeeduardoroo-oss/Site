@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF</title>
+    <title>Backtest Engine — SMC + MTF (v2.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -188,7 +188,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.0)</h1>
 
     <!-- ===== PARÂMETROS ===== -->
     <div class="params-grid">
@@ -201,7 +201,7 @@
             <input type="number" id="scoreMaxShort" value="32" min="0" max="100" step="1">
         </div>
         <div>
-            <label>ADX mínimo</label>
+            <label>ADX mínimo (base)</label>
             <input type="number" id="adxMin" value="22" min="0" max="100" step="1">
         </div>
         <div>
@@ -213,8 +213,8 @@
             <input type="number" id="retestDist" value="2.0" min="0.1" max="10" step="0.1">
         </div>
         <div>
-            <label>Dias de backtest</label>
-            <input type="number" id="days" value="30" min="1" max="365" step="1">
+            <label>Dias de backtest (máx 1000)</label>
+            <input type="number" id="days" value="30" min="1" max="1000" step="1">
         </div>
         <div>
             <label>Ativo</label>
@@ -268,16 +268,17 @@
     </div>
 
     <div class="legend">
-        <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics), Fear & Greed (alternative.me). Carteira inicial: $10.000 USD.
+        <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics), Fear & Greed (alternative.me). Carteira inicial: $10.000 USD. <br>
+        <strong>Limite máximo:</strong> 1000 dias (≈2,7 anos) – dados completos de preço, funding e OI; MVRV e Fear & Greed com fallback.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE – COMPLETO
+    // BACKTEST ENGINE v2.0 – COM TODAS AS MELHORIAS
     // ============================================================
 
-    // ===== FUNÇÕES AUXILIARES =====
+    // ===== FUNÇÕES AUXILIARES (mantidas, com ajustes de retry) =====
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -531,24 +532,26 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ===== FETCH FUNCTIONS =====
-    const fetchWithRetry = async (url, opts = {}, retries = 2) => {
-        try {
-            const resp = await fetch(url, opts);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            return await resp.json();
-        } catch (e) {
-            if (retries > 0) {
-                await new Promise(r => setTimeout(r, 1000));
-                return fetchWithRetry(url, opts, retries - 1);
+    // ===== FETCH FUNCTIONS COM MELHORIAS =====
+    // Retry com backoff exponencial
+    const fetchWithRetry = async (url, opts = {}, retries = 5) => {
+        let delay = 100;
+        for (let i = 0; i < retries; i++) {
+            try {
+                const resp = await fetch(url, opts);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                return await resp.json();
+            } catch (e) {
+                if (i === retries - 1) throw e;
+                await new Promise(r => setTimeout(r, delay));
+                delay *= 2;
             }
-            throw e;
         }
     };
 
     const fetchHistoricalCandles = async (symbol, interval, limit = 1000) => {
         const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-        const data = await fetchWithRetry(url, {}, 2);
+        const data = await fetchWithRetry(url, {}, 3);
         return data.map(k => ({
             time: k[0],
             open: parseFloat(k[1]),
@@ -564,7 +567,7 @@
         let currentStart = startTime;
         while (currentStart < endTime) {
             const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${currentStart}&endTime=${endTime}&limit=${limit}`;
-            const data = await fetchWithRetry(url, {}, 2);
+            const data = await fetchWithRetry(url, {}, 3);
             if (!data || data.length === 0) break;
             const mapped = data.map(k => ({
                 time: k[0],
@@ -578,19 +581,38 @@
             const lastTime = mapped[mapped.length - 1].time;
             if (lastTime >= endTime) break;
             currentStart = lastTime + 1;
-            await new Promise(r => setTimeout(r, 200)); // evitar rate limit
+            // Delay dinâmico
+            const callCount = Math.ceil((currentStart - startTime) / (limit * 24 * 60 * 60 * 1000));
+            const delay = Math.min(300 + callCount * 50, 1000);
+            await new Promise(r => setTimeout(r, delay));
         }
         return all;
     };
 
+    // Funding com paginação completa
     const fetchHistoricalFunding = async (symbol, startTime, endTime) => {
-        const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&startTime=${startTime}&endTime=${endTime}&limit=1000`;
-        try {
-            const data = await fetchWithRetry(url, {}, 2);
-            return data.map(d => ({ time: d.fundingTime, rate: parseFloat(d.fundingRate) }));
-        } catch (e) { return []; }
+        let all = [];
+        let currentStart = startTime;
+        const limit = 1000;
+        while (currentStart < endTime) {
+            const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&startTime=${currentStart}&endTime=${endTime}&limit=${limit}`;
+            try {
+                const data = await fetchWithRetry(url, {}, 3);
+                if (!data || data.length === 0) break;
+                const mapped = data.map(d => ({ time: d.fundingTime, rate: parseFloat(d.fundingRate) }));
+                all = all.concat(mapped);
+                const lastTime = mapped[mapped.length - 1].time;
+                if (lastTime >= endTime) break;
+                currentStart = lastTime + 1;
+                const callCount = Math.ceil((currentStart - startTime) / (limit * 8 * 60 * 60 * 1000));
+                const delay = Math.min(300 + callCount * 50, 1000);
+                await new Promise(r => setTimeout(r, delay));
+            } catch (e) { break; }
+        }
+        return all;
     };
 
+    // OI com paginação completa
     const fetchHistoricalOI = async (symbol, startTime, endTime) => {
         let all = [];
         let currentStart = startTime;
@@ -598,33 +620,43 @@
         while (currentStart < endTime) {
             const url = `https://fapi.binance.com/futures/data/openInterestHist?symbol=${symbol}&period=1h&startTime=${currentStart}&endTime=${endTime}&limit=${limit}`;
             try {
-                const data = await fetchWithRetry(url, {}, 2);
+                const data = await fetchWithRetry(url, {}, 3);
                 if (!data || data.length === 0) break;
                 const mapped = data.map(d => ({ time: d.timestamp, oi: parseFloat(d.sumOpenInterest) }));
                 all = all.concat(mapped);
                 const lastTime = mapped[mapped.length - 1].time;
                 if (lastTime >= endTime) break;
                 currentStart = lastTime + 1;
-                await new Promise(r => setTimeout(r, 200));
+                const callCount = Math.ceil((currentStart - startTime) / (limit * 60 * 60 * 1000));
+                const delay = Math.min(300 + callCount * 50, 1000);
+                await new Promise(r => setTimeout(r, delay));
             } catch (e) { break; }
         }
         return all;
     };
 
+    // MVRV com fallback
     const fetchHistoricalMVRV = async (startDate, endDate) => {
         const url = `https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMVRVCur&frequency=1d&start_time=${startDate}&end_time=${endDate}&page_size=1000`;
         try {
-            const data = await fetchWithRetry(url, {}, 2);
+            const data = await fetchWithRetry(url, {}, 3);
             return data?.data?.map(d => ({ time: new Date(d.time).getTime() / 1000, value: parseFloat(d.CapMVRVCur) })) || [];
-        } catch (e) { return []; }
+        } catch (e) {
+            console.warn('Falha ao obter MVRV, usando valor padrão 2.0');
+            return [{ time: new Date(startDate).getTime() / 1000, value: 2.0 }];
+        }
     };
 
+    // Fear & Greed com fallback
     const fetchFearGreedHistorical = async (limit = 1000) => {
         const url = `https://api.alternative.me/fng/?limit=${limit}`;
         try {
-            const data = await fetchWithRetry(url, {}, 2);
+            const data = await fetchWithRetry(url, {}, 3);
             return data?.data?.map(d => ({ time: new Date(d.timestamp).getTime() / 1000, value: parseInt(d.value) })) || [];
-        } catch (e) { return []; }
+        } catch (e) {
+            console.warn('Falha ao obter Fear & Greed, usando valor padrão 50');
+            return [{ time: Date.now() / 1000, value: 50 }];
+        }
     };
 
     const findMostRecent = (arr, cond) => {
@@ -648,13 +680,16 @@
             ignoreRetest = false
         } = options;
 
+        // Limitar dias a 1000
+        days = Math.min(days, 1000);
+
         const now = Date.now();
         const startTime = now - days * 24 * 60 * 60 * 1000;
         const endTime = now;
         const startDateStr = new Date(startTime).toISOString().slice(0, 10);
         const endDateStr = new Date(endTime).toISOString().slice(0, 10);
 
-        console.log(`[Backtest] ${symbol} - ${days} dias`);
+        console.log(`[Backtest] ${symbol} - ${days} dias (máx 1000)`);
 
         // Busca dados
         const [candles1h, candles4h, fundingHist, oiHist, mvrvHist, fgHist] = await Promise.all([
@@ -666,9 +701,25 @@
             fetchFearGreedHistorical(500)
         ]);
 
+        // Validação de integridade
+        const requiredCandles = days * 24;
+        if (candles1h.length < Math.min(requiredCandles, 100)) {
+            return { trades: [], summary: { error: `Dados insuficientes: obtidos ${candles1h.length} candles, necessário ${Math.min(requiredCandles, 100)}.` } };
+        }
+        const fundingCoverage = fundingHist.length / (days * 24);
+        if (fundingCoverage < 0.5) {
+            console.warn(`Cobertura de funding baixa: ${(fundingCoverage*100).toFixed(1)}% – os filtros podem não funcionar corretamente.`);
+        }
+        const oiCoverage = oiHist.length / (days * 24);
+        if (oiCoverage < 0.5) {
+            console.warn(`Cobertura de OI baixa: ${(oiCoverage*100).toFixed(1)}% – os filtros podem não funcionar corretamente.`);
+        }
+        if (mvrvHist.length === 0) console.warn('Dados MVRV não disponíveis – filtro macro desativado.');
+        if (fgHist.length === 0) console.warn('Dados Fear & Greed não disponíveis – filtro macro desativado.');
+
         const filteredCandles = candles1h.filter(c => c.time >= startTime / 1000 && c.time <= endTime / 1000);
         if (filteredCandles.length < 50) {
-            return { trades: [], summary: { error: 'Dados insuficientes.' } };
+            return { trades: [], summary: { error: 'Dados insuficientes após filtragem.' } };
         }
 
         const state = {
@@ -686,6 +737,7 @@
             mtfConfluence: null,
             adx: 0,
             divergence: null,
+            divergence4H: null,
             volumeAnomaly: null,
             macroBlackout: false,
             vwap: 0,
@@ -693,7 +745,10 @@
             fundingRate: 0,
             oiDelta: 0,
             mvrv: null,
-            fearGreedData: { value: 50 }
+            fearGreedData: { value: 50 },
+            fundingHistory: [],
+            oiDeltaHistory: [],
+            bandwidthHistory: []
         };
 
         let position = null;
@@ -738,6 +793,7 @@
                 state.htfStructure = detectHTFStructure(state, relevant4H);
             }
 
+            // RSI 1H para divergência
             let rsiForDiv = [];
             let g = 0, l = 0;
             for (let i = 1; i < closes.length; i++) {
@@ -762,9 +818,38 @@
                 const div = detectRSIDivergence(candles, rsiForDiv);
                 state.divergence = div;
             }
+
+            // Divergência em 4H
+            if (relevant4H.length >= 30) {
+                const closes4H = relevant4H.map(c => c.close);
+                let rsi4H = [];
+                let g4 = 0, l4 = 0;
+                for (let i = 1; i < closes4H.length; i++) {
+                    const d = closes4H[i] - closes4H[i-1];
+                    if (i <= 14) {
+                        if (d >= 0) g4 += d;
+                        else l4 -= d;
+                        if (i === 14) {
+                            let ag = g4 / 14, al = l4 / 14;
+                            rsi4H.push(al === 0 ? 100 : 100 - (100 / (1 + ag / al)));
+                        }
+                    } else {
+                        const gain = d > 0 ? d : 0;
+                        const loss = d < 0 ? -d : 0;
+                        const prevR = rsi4H[rsi4H.length - 1];
+                        const ag = (prevR * 13 + gain) / 14;
+                        const al = (prevR * 13 + loss) / 14;
+                        rsi4H.push(al === 0 ? 100 : 100 - (100 / (1 + ag / al)));
+                    }
+                }
+                if (rsi4H.length > 20) {
+                    const div4H = detectRSIDivergence(relevant4H, rsi4H);
+                    state.divergence4H = div4H;
+                }
+            }
         };
 
-        // MTF histórico (baseado em EMAs)
+        // MTF histórico
         const getMTFAlignmentAtTime = (currentTime) => {
             const relevant1H = state.candles1H.filter(c => c.time <= currentTime).slice(-50);
             const relevant4H = state.candles4H.filter(c => c.time <= currentTime).slice(-50);
@@ -798,12 +883,16 @@
 
             const fundingAtTime = findMostRecent(fundingHist, f => f.time <= candle.time * 1000) || fundingHist[0];
             state.fundingRate = fundingAtTime ? fundingAtTime.rate : 0;
+            state.fundingHistory.push(state.fundingRate);
+            if (state.fundingHistory.length > 100) state.fundingHistory.shift();
 
             const oiAtTime = findMostRecent(oiHist, o => o.time <= candle.time * 1000) || oiHist[0];
             if (oiAtTime) {
                 const oi24h = findMostRecent(oiHist, o => o.time <= (candle.time - 86400) * 1000);
                 state.oiDelta = oi24h ? ((oiAtTime.oi - oi24h.oi) / oi24h.oi * 100) : 0;
             }
+            state.oiDeltaHistory.push(state.oiDelta);
+            if (state.oiDeltaHistory.length > 100) state.oiDeltaHistory.shift();
 
             const mvrvAtTime = findMostRecent(mvrvHist, m => m.time <= candle.time);
             state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
@@ -815,6 +904,49 @@
                 updateIndicators(state.candles1H, candle.time);
             } else {
                 continue;
+            }
+
+            // ===== FILTROS DE VOLATILIDADE (Bollinger) =====
+            const closes = state.candles1H.slice(-20).map(c => c.close);
+            if (closes.length >= 20) {
+                const sma = closes.reduce((a,b) => a+b, 0) / 20;
+                const variance = closes.reduce((s, v) => s + (v-sma)**2, 0) / 20;
+                const stdBB = Math.sqrt(variance);
+                const bandwidth = (2 * stdBB) / sma;
+                state.bandwidthHistory.push(bandwidth);
+                if (state.bandwidthHistory.length > 50) state.bandwidthHistory.shift();
+                if (state.bandwidthHistory.length >= 20) {
+                    const avgBW = state.bandwidthHistory.slice(-20).reduce((a,b) => a+b, 0) / 20;
+                    if (bandwidth < avgBW * 0.7) {
+                        blockStats['baixa_volatilidade_bb'] = (blockStats['baixa_volatilidade_bb'] || 0) + 1;
+                        continue; // pula esta vela
+                    }
+                }
+            }
+
+            // ===== Z-SCORE FUNDING =====
+            let fundingZ = 0;
+            if (state.fundingHistory.length >= 20) {
+                const mean = state.fundingHistory.reduce((a,b) => a+b, 0) / state.fundingHistory.length;
+                const variance = state.fundingHistory.reduce((s, v) => s + (v-mean)**2, 0) / state.fundingHistory.length;
+                const std = Math.sqrt(variance);
+                fundingZ = (state.fundingRate - mean) / (std || 1);
+                if (Math.abs(fundingZ) > 1.5) {
+                    blockStats[`funding_extremo_z${fundingZ.toFixed(2)}`] = (blockStats[`funding_extremo_z${fundingZ.toFixed(2)}`] || 0) + 1;
+                    continue;
+                }
+            }
+
+            // ===== Z-SCORE OI =====
+            if (state.oiDeltaHistory.length >= 20) {
+                const meanO = state.oiDeltaHistory.reduce((a,b) => a+b, 0) / state.oiDeltaHistory.length;
+                const varO = state.oiDeltaHistory.reduce((s, v) => s + (v-meanO)**2, 0) / state.oiDeltaHistory.length;
+                const stdO = Math.sqrt(varO);
+                const zO = (state.oiDelta - meanO) / (stdO || 1);
+                if (Math.abs(zO) > 1.5) {
+                    blockStats[`oi_extremo_z${zO.toFixed(2)}`] = (blockStats[`oi_extremo_z${zO.toFixed(2)}`] || 0) + 1;
+                    continue;
+                }
             }
 
             const simAssets = {
@@ -865,8 +997,24 @@
                 scoreMaxShort: scoreMaxShort
             });
 
-            const score = confidence.score;
+            let score = confidence.score;
             let blockReason = scoreData.blockReason;
+
+            // ADX dinâmico
+            if (state.candles1H.length >= 50) {
+                const adxHistory = [];
+                for (let j = state.candles1H.length - 50; j < state.candles1H.length; j++) {
+                    const slice = state.candles1H.slice(0, j);
+                    const adxCalc = calculateADX(slice);
+                    adxHistory.push(typeof adxCalc === 'object' ? adxCalc.adx : adxCalc);
+                }
+                const avgAdx = adxHistory.reduce((a,b) => a + b, 0) / adxHistory.length;
+                const dynamicAdxThreshold = Math.max(avgAdx * 0.8 + 5, 18);
+                const adxValue = typeof state.adx === 'object' ? state.adx.adx : state.adx;
+                if (adxValue < dynamicAdxThreshold) {
+                    blockReason = `ADX ${adxValue.toFixed(1)} < dinâmico ${dynamicAdxThreshold.toFixed(1)}`;
+                }
+            }
 
             const adxValue = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             if (adxValue < adxMin && !blockReason) blockReason = `ADX < ${adxMin}`;
@@ -893,13 +1041,17 @@
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
+                // Trailing adaptativo com volatilidade
+                const returns = state.candles1H.slice(-30).map(c => (c.close - c.open)/c.open);
+                const std = Math.sqrt(returns.reduce((s, r) => s + r*r, 0) / returns.length);
+                const volatilityFactor = Math.min(Math.max(std * 2, 0.5), 2.0);
                 if (position.type === 'LONG') {
                     if (high >= position.tp2) { exitPrice = position.tp2; closed = true; reason = 'TP2'; }
                     else if (low <= position.trailingStop) { exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop'; }
                     else if (high >= position.tp1 && !position.partialTaken) {
                         position.partialTaken = true;
                         position.sizeRemaining = 0.5;
-                        position.trailingStop = Math.max(position.trailingStop, position.entryPrice + state.atr_1H * 0.1);
+                        position.trailingStop = Math.max(position.trailingStop, position.entryPrice + state.atr_1H * volatilityFactor * 0.3);
                     }
                 } else {
                     if (low <= position.tp2) { exitPrice = position.tp2; closed = true; reason = 'TP2'; }
@@ -907,7 +1059,7 @@
                     else if (low <= position.tp1 && !position.partialTaken) {
                         position.partialTaken = true;
                         position.sizeRemaining = 0.5;
-                        position.trailingStop = Math.min(position.trailingStop, position.entryPrice - state.atr_1H * 0.1);
+                        position.trailingStop = Math.min(position.trailingStop, position.entryPrice - state.atr_1H * volatilityFactor * 0.3);
                     }
                 }
                 if (closed) {
@@ -934,16 +1086,17 @@
                     else lossCount++;
                     position = null;
                 } else {
+                    // Atualizar trailing stop adaptativo
                     if (position.type === 'LONG') {
                         if (state.swingLows.length > 0) {
                             const newLow = Math.min(...state.swingLows);
-                            const newStop = newLow - state.atr_1H * 0.2;
+                            const newStop = newLow - state.atr_1H * volatilityFactor * 0.3;
                             if (newStop > position.trailingStop) position.trailingStop = newStop;
                         }
                     } else {
                         if (state.swingHighs.length > 0) {
                             const newHigh = Math.max(...state.swingHighs);
-                            const newStop = newHigh + state.atr_1H * 0.2;
+                            const newStop = newHigh + state.atr_1H * volatilityFactor * 0.3;
                             if (newStop < position.trailingStop) position.trailingStop = newStop;
                         }
                     }
@@ -988,6 +1141,22 @@
                 const retestPassed = retestRequired ? retestConfirmed : true;
                 const structureOk = bosPassed && retestPassed;
 
+                // ===== FILTRO DE VOLUME E FECHAMENTO =====
+                const volumeAvg = state.candles1H.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
+                const volumeOk = state.candles1H[state.candles1H.length - 1].volume >= volumeAvg * 1.5;
+                const closeBreakOk = (primaryDirection === 'LONG' && candle.close > brokenLevel) ||
+                                     (primaryDirection === 'SHORT' && candle.close < brokenLevel);
+                if (!volumeOk || !closeBreakOk) {
+                    blockReason = 'volume_insuficiente_ou_fechamento_fraco';
+                }
+
+                // ===== CONFIRMAÇÃO DE CORPO DE CANDLE =====
+                const body = Math.abs(candle.close - candle.open);
+                const range = candle.high - candle.low;
+                if (range > 0 && body / range < 0.5) {
+                    blockReason = 'corpo_fraco_doji';
+                }
+
                 totalCandlesProcessed++;
                 let reasonKey = blockReason;
                 if (!blockReason && primaryDirection) {
@@ -1000,24 +1169,39 @@
                 }
                 blockStats[reasonKey] = (blockStats[reasonKey] || 0) + 1;
 
-                if (structureOk) {
+                // Bônus de divergência 4H
+                if (state.divergence4H) {
+                    if ((state.divergence4H.type === 'BULLISH_REGULAR' && primaryDirection === 'LONG') ||
+                        (state.divergence4H.type === 'BEARISH_REGULAR' && primaryDirection === 'SHORT')) {
+                        score += 8;
+                        if (score >= scoreMin || score <= scoreMaxShort) {
+                            // forçar entrada
+                        }
+                    }
+                }
+
+                if (structureOk && !blockReason) {
                     let stop, tp1, tp2, tp3;
+                    const returns = state.candles1H.slice(-30).map(c => (c.close - c.open)/c.open);
+                    const std = Math.sqrt(returns.reduce((s, r) => s + r*r, 0) / returns.length);
+                    const volatilityAtr = state.atr_1H * (1 + std * 0.5);
+
                     if (primaryDirection === 'LONG') {
                         const recentLows = state.swingLows.slice(-3);
                         const structLevel = (recentLows.length ? Math.min(...recentLows) : state.price * 0.98) - (atr * 0.3);
                         const atrStop = state.price - atr * 1.5;
                         stop = (recentLows.length && (state.price - structLevel) <= atr * 2.5) ? structLevel : atrStop;
-                        tp1 = state.price + (atr * 2.2);
-                        tp2 = state.price + (atr * 4.5);
-                        tp3 = state.price + (atr * 7);
+                        tp1 = state.price + (volatilityAtr * 2.0);
+                        tp2 = state.price + (volatilityAtr * 4.0);
+                        tp3 = state.price + (volatilityAtr * 7.0);
                     } else {
                         const recentHighs = state.swingHighs.slice(-3);
                         const structLevel = (recentHighs.length ? Math.max(...recentHighs) : state.price * 1.02) + (atr * 0.3);
                         const atrStopShort = state.price + atr * 1.5;
                         stop = (recentHighs.length && (structLevel - state.price) <= atr * 2.5) ? structLevel : atrStopShort;
-                        tp1 = state.price - (atr * 2.2);
-                        tp2 = state.price - (atr * 4.5);
-                        tp3 = state.price - (atr * 7);
+                        tp1 = state.price - (volatilityAtr * 2.0);
+                        tp2 = state.price - (volatilityAtr * 4.0);
+                        tp3 = state.price - (volatilityAtr * 7.0);
                     }
 
                     let rrPonderado;
@@ -1104,8 +1288,6 @@
         const maxDrawdown = highWaterMark > 0 ? ((highWaterMark - equity) / highWaterMark * 100) : 0;
         const annualizedReturn = totalPnlPct !== 0 && !isNaN(totalPnlPct) ? (Math.pow(1 + totalPnlPct / 100, 365 / days) - 1) * 100 : 0;
         const equityCurve = [10000];
-        // (simplificado, não estamos coletando equityCurve no loop, mas podemos construir a partir dos trades)
-        // Para o gráfico, vamos reconstruir a curva de equity a partir dos trades
         let eq = 10000;
         const equityPoints = [{ x: 0, y: 10000 }];
         for (const t of trades) {
@@ -1151,7 +1333,10 @@
         status.textContent = '⏳ Buscando dados...';
 
         const symbol = document.getElementById('symbolSelect').value;
-        const days = parseInt(document.getElementById('days').value) || 30;
+        let days = parseInt(document.getElementById('days').value) || 30;
+        days = Math.min(days, 1000); // limite
+        document.getElementById('days').value = days; // atualiza UI
+
         const params = {
             scoreMin: getParam('scoreMin'),
             scoreMaxShort: getParam('scoreMaxShort'),
@@ -1230,7 +1415,7 @@
                 diagDiv.style.display = 'none';
             }
 
-            // Gráfico de equity
+            // Gráfico
             const equityData = summary.equityCurve || [{ x: 0, y: 10000 }];
             const ctx = document.getElementById('equityChart').getContext('2d');
             if (window.equityChartInstance) window.equityChartInstance.destroy();
@@ -1261,7 +1446,7 @@
                 }
             });
 
-            status.textContent = `✅ Concluído em ${new Date().toLocaleTimeString()}`;
+            status.textContent = `✅ Concluído em ${new Date().toLocaleTimeString()} (máx 1000 dias)`;
 
         } catch (e) {
             console.error(e);
