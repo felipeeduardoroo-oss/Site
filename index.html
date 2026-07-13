@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v2.7)</title>
+    <title>Backtest Engine — SMC + MTF (v2.8)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -22,6 +22,8 @@
         .btn-io:hover { background:#3a3a5a; }
         .btn-io.primary { background:#7c3aed; border-color:#7c3aed; }
         .btn-io.primary:hover { background:#6a2ad0; }
+        .btn-io.success { background:#00b894; border-color:#00b894; }
+        .btn-io.success:hover { background:#00a381; }
         .status-bar { margin:12px 0 16px; font-size:.9rem; color:#8b949e; min-height:1.5em; }
         .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:16px 0 24px; }
         .stat-card { background:#0f1117; border:1px solid #2a2a44; border-radius:10px; padding:16px; text-align:center; }
@@ -48,11 +50,12 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v2.7)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.8)</h1>
 
     <div class="io-section">
-        <button class="btn-io" id="exportBtn">📤 Exportar cache atual</button>
-        <button class="btn-io primary" id="fetchExportBtn">📥 Buscar e Exportar Dados Brutos (1000 dias)</button>
+        <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
+        <button class="btn-io primary" id="fetchExportBtn">📥 Buscar e Exportar (1000 dias)</button>
+        <button class="btn-io success" id="reportBtn">📊 Exportar Relatório</button>
         <label class="btn-io" style="cursor:pointer;">📥 Importar dados
             <input type="file" id="importInput" multiple accept=".json" style="display:none;" />
         </label>
@@ -65,7 +68,7 @@
         <div><label>ADX mínimo (base)</label><input type="number" id="adxMin" value="22" min="0" max="100" step="1"></div>
         <div><label>R:R mínimo</label><input type="number" id="rrMin" value="1.8" min="0.1" max="10" step="0.1"></div>
         <div><label>Retest dist (%)</label><input type="number" id="retestDist" value="2.0" min="0.1" max="10" step="0.1"></div>
-        <div><label>Dias de backtest (máx 1000)</label><input type="number" id="days" value="30" min="1" max="1000" step="1"></div>
+        <div><label>Dias de backtest (máx 1000)</label><input type="number" id="days" value="999" min="1" max="1000" step="1"></div>
         <div><label>Ativo</label>
             <select id="symbolSelect" style="width:100%;padding:6px;border-radius:6px;border:1px solid #2a2a44;background:#1a1a2e;color:#e6e8eb;font-size:.9rem;">
                 <option value="BTCUSDT">BTCUSDT</option>
@@ -107,16 +110,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>Nota:</strong> O indicador Fear & Greed foi removido por falta de dados históricos confiáveis para 1000 dias.
+        <strong>Relatório:</strong> Exporta métricas detalhadas, gráficos, análise por fatores e CSV de trades.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v2.7 – CÓDIGO COMPLETO (CORREÇÃO DE TIMESTAMP)
+    // BACKTEST ENGINE v2.8 – CÓDIGO COMPLETO
     // ============================================================
 
-    // ----- Variáveis globais de dados (cache em memória) -----
+    // ----- Variáveis globais -----
     let cachedData = {
         candles1h: [],
         candles4h: [],
@@ -124,6 +127,7 @@
         oi: [],
         mvrv: []
     };
+    let lastResult = null;
 
     // ----- FUNÇÕES AUXILIARES -----
     const calcEMA = (data, period) => {
@@ -374,7 +378,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ----- FETCH COM PAGINAÇÃO E FALLBACK (sem Fear & Greed) -----
+    // ----- FETCH (com paginação e fallback, sem Fear & Greed) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -500,7 +504,7 @@
         return null;
     };
 
-    // ----- FUNÇÃO PARA BUSCAR DADOS BRUTOS DE 1000 DIAS (sem Fear & Greed) -----
+    // ----- FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO -----
     async function fetchRawData(symbol = 'BTCUSDT') {
         const days = 1000;
         const now = Date.now();
@@ -522,7 +526,6 @@
         return { candles1h, candles4h, funding, oi, mvrv };
     }
 
-    // ----- EXPORTAÇÃO (dados brutos do cache, sem Fear & Greed) -----
     function exportData() {
         const datasets = {
             candles1h: cachedData.candles1h,
@@ -531,7 +534,6 @@
             oi: cachedData.oi,
             mvrv: cachedData.mvrv
         };
-
         let exportedCount = 0;
         for (const [key, data] of Object.entries(datasets)) {
             if (data.length === 0) continue;
@@ -545,29 +547,24 @@
             exportedCount++;
         }
         if (exportedCount === 0) {
-            alert('Nenhum dado em cache para exportar. Execute uma busca primeiro.');
+            alert('Nenhum dado em cache para exportar.');
         } else {
-            alert(`${exportedCount} arquivo(s) exportado(s) com dados brutos (todos os períodos armazenados).`);
+            alert(`${exportedCount} arquivo(s) exportado(s).`);
         }
     }
 
-    // ----- BUSCAR E EXPORTAR (1000 dias) -----
     async function fetchAndExport() {
         const symbol = document.getElementById('symbolSelect').value;
         const status = document.getElementById('status');
         status.textContent = '⏳ Buscando dados de 1000 dias...';
-
         try {
             const data = await fetchRawData(symbol);
-
             cachedData.candles1h = data.candles1h;
             cachedData.candles4h = data.candles4h;
             cachedData.funding = data.funding;
             cachedData.oi = data.oi;
             cachedData.mvrv = data.mvrv;
-
             console.log(`Dados armazenados: 1h=${data.candles1h.length}, 4h=${data.candles4h.length}, funding=${data.funding.length}, OI=${data.oi.length}, MVRV=${data.mvrv.length}`);
-
             status.textContent = `✅ Dados de 1000 dias coletados. Exportando...`;
             exportData();
             status.textContent = `✅ Dados de 1000 dias exportados com sucesso!`;
@@ -577,7 +574,6 @@
         }
     }
 
-    // ----- IMPORTAÇÃO (sem Fear & Greed) -----
     function importData(files) {
         const fileMap = {
             'candles1h': 'candles1h',
@@ -601,13 +597,13 @@
                 });
                 promises.push(p);
             } else {
-                console.warn(`Arquivo ${file.name} não corresponde a um indicador conhecido (ignorado).`);
+                console.warn(`Arquivo ${file.name} ignorado.`);
             }
         }
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COMPLETO (com correção de timestamp) =====
+    // ===== BACKTEST COMPLETO (corrigido timestamp) =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -657,21 +653,16 @@
             }
         } else {
             console.log('Usando dados do cache (importados).');
-            // CORREÇÃO: comparar timestamps em milissegundos
             candles1h = candles1h.filter(c => c.time >= startTime && c.time <= endTime);
             candles4h = candles4h.filter(c => c.time >= startTime && c.time <= endTime);
             fundingHist = fundingHist.filter(f => f.time >= startTime && f.time <= endTime);
             oiHist = oiHist.filter(o => o.time >= startTime && o.time <= endTime);
-            mvrvHist = mvrvHist.filter(m => m.time >= startTime/1000 && m.time <= endTime/1000); // MVRV usa segundos
+            mvrvHist = mvrvHist.filter(m => m.time >= startTime/1000 && m.time <= endTime/1000);
         }
 
         console.log(`Obtidos ${candles1h.length} candles 1h, ${candles4h.length} candles 4h`);
 
-        // Validação flexível
-        const requiredCandles = days * 24;
-        let minCandles = 20;
-        if (days >= 2) minCandles = 50;
-
+        const minCandles = (days >= 2) ? 50 : 20;
         if (candles1h.length < minCandles) {
             let msg = `Dados insuficientes: obtidos ${candles1h.length} velas, necessário ${minCandles}.`;
             if (!needFetch && cachedData.candles1h.length > 0) {
@@ -685,20 +676,7 @@
             return { trades: [], summary: { error: msg } };
         }
 
-        const fundingCoverage = fundingHist.length / (days * 24);
-        if (fundingCoverage < 0.5) {
-            console.warn(`Cobertura de funding baixa: ${(fundingCoverage*100).toFixed(1)}% – os filtros podem não funcionar corretamente.`);
-        }
-        const oiCoverage = oiHist.length / (days * 24);
-        if (oiCoverage < 0.5) {
-            console.warn(`Cobertura de OI baixa: ${(oiCoverage*100).toFixed(1)}% – os filtros podem não funcionar corretamente.`);
-        }
-        if (mvrvHist.length === 0) console.warn('Dados MVRV não disponíveis – filtro macro desativado.');
-
-        const filteredCandles = candles1h; // já filtrados
-        if (filteredCandles.length < minCandles) {
-            return { trades: [], summary: { error: `Dados insuficientes após filtragem: ${filteredCandles.length} velas.` } };
-        }
+        const filteredCandles = candles1h;
 
         const state = {
             candles1H: [], candles4H: candles4h || [], ema50_1H: 0, ema200_4H: 0,
@@ -862,7 +840,7 @@
                 continue;
             }
 
-            // Bollinger (volatilidade)
+            // Bollinger
             const closes = state.candles1H.slice(-20).map(c => c.close);
             if (closes.length >= 20) {
                 const sma = closes.reduce((a,b) => a+b, 0) / 20;
@@ -1263,6 +1241,233 @@
         return { trades, summary };
     }
 
+    // ===== FUNÇÃO PARA GERAR RELATÓRIO =====
+    function generateReport(trades, summary, symbol, days) {
+        if (!trades || trades.length === 0) {
+            alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
+            return;
+        }
+
+        const closed = trades.filter(t => t.exitTime !== null && t.pnlPct !== null);
+        if (closed.length === 0) {
+            alert('Nenhum trade fechado para gerar relatório.');
+            return;
+        }
+
+        // Métricas
+        const totalTrades = summary.totalTrades;
+        const winrate = summary.winrate;
+        const totalPnlPct = summary.totalPnlPct;
+        const totalPnlUsd = summary.totalPnlUsd;
+        const profitFactor = summary.profitFactor;
+        const maxDrawdown = summary.maxDrawdown;
+        const annualizedReturn = summary.annualizedReturn;
+
+        const longs = closed.filter(t => t.direction === 'LONG');
+        const shorts = closed.filter(t => t.direction === 'SHORT');
+        const longWins = longs.filter(t => parseFloat(t.pnlPct) > 0).length;
+        const shortWins = shorts.filter(t => parseFloat(t.pnlPct) > 0).length;
+        const longWinrate = longs.length > 0 ? (longWins / longs.length * 100) : 0;
+        const shortWinrate = shorts.length > 0 ? (shortWins / shorts.length * 100) : 0;
+        const longPnl = longs.reduce((s, t) => s + parseFloat(t.pnlPct), 0);
+        const shortPnl = shorts.reduce((s, t) => s + parseFloat(t.pnlPct), 0);
+
+        const reasons = {};
+        closed.forEach(t => {
+            const r = t.reason || 'Desconhecido';
+            reasons[r] = (reasons[r] || 0) + 1;
+        });
+
+        const monthly = {};
+        closed.forEach(t => {
+            const month = t.entryTime.slice(0, 7);
+            if (!monthly[month]) monthly[month] = { wins: 0, losses: 0, pnl: 0, count: 0 };
+            const pnl = parseFloat(t.pnlPct);
+            monthly[month].pnl += pnl;
+            monthly[month].count++;
+            if (pnl > 0) monthly[month].wins++;
+            else monthly[month].losses++;
+        });
+        const monthlyData = Object.entries(monthly).map(([month, data]) => ({
+            month,
+            pnl: data.pnl,
+            count: data.count,
+            winrate: data.count > 0 ? (data.wins / data.count * 100) : 0
+        })).sort((a, b) => a.month.localeCompare(b.month));
+
+        const durations = closed.map(t => parseFloat(t.durationHours)).filter(d => d > 0);
+        const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+        const maxDuration = durations.length > 0 ? Math.max(...durations) : 0;
+        const minDuration = durations.length > 0 ? Math.min(...durations) : 0;
+
+        const blockStats = summary.blockStats || {};
+        const totalBlocks = Object.values(blockStats).reduce((a, b) => a + b, 0) || 1;
+        const filterEffectiveness = Object.entries(blockStats)
+            .map(([filter, count]) => ({ filter, count, pct: (count / totalBlocks * 100) }))
+            .sort((a, b) => b.count - a.count);
+
+        const pnlValues = closed.map(t => parseFloat(t.pnlPct));
+        const avgPnl = pnlValues.reduce((a, b) => a + b, 0) / pnlValues.length;
+        const variance = pnlValues.reduce((s, v) => s + (v - avgPnl) ** 2, 0) / pnlValues.length;
+        const stdDev = Math.sqrt(variance);
+        const sharpe = stdDev > 0 ? avgPnl / stdDev : 0;
+        const calmar = maxDrawdown > 0 ? annualizedReturn / maxDrawdown : 0;
+
+        const reportHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Relatório de Performance - ${symbol}</title>
+        <style>
+            body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; padding: 30px; color: #2d3436; }
+            .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            h1 { color: #2d3436; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; }
+            h2 { color: #2d3436; margin-top: 30px; border-left: 4px solid #7c3aed; padding-left: 15px; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 15px; margin: 20px 0; }
+            .card { background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e9ecef; }
+            .card .label { font-size: 12px; color: #6c757d; text-transform: uppercase; }
+            .card .value { font-size: 24px; font-weight: 700; }
+            .positive { color: #00b894; }
+            .negative { color: #e17055; }
+            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+            th, td { padding: 10px; border-bottom: 1px solid #e9ecef; text-align: left; }
+            th { background: #f1f2f6; }
+            .chart-container { height: 300px; margin: 20px 0; }
+            .tag { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #dfe6e9; font-size: 12px; margin: 2px; }
+            .tag.pass { background: #d4edda; color: #155724; }
+            .tag.block { background: #f8d7da; color: #721c24; }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"><\/script>
+        </head>
+        <body>
+        <div class="container">
+            <h1>📊 Relatório de Performance — ${symbol}</h1>
+            <p><strong>Período:</strong> Últimos ${days} dias (${new Date(Date.now() - days*24*60*60*1000).toLocaleDateString()} a ${new Date().toLocaleDateString()})</p>
+            <p><strong>Trades fechados:</strong> ${closed.length}</p>
+
+            <div class="grid">
+                <div class="card"><div class="label">Winrate</div><div class="value ${winrate >= 50 ? 'positive' : 'negative'}">${winrate.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">P&L %</div><div class="value ${totalPnlPct >= 0 ? 'positive' : 'negative'}">${(totalPnlPct >= 0 ? '+' : '')}${totalPnlPct.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">P&L (USD)</div><div class="value ${totalPnlUsd >= 0 ? 'positive' : 'negative'}">${(totalPnlUsd >= 0 ? '+' : '')}$${totalPnlUsd.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Profit Factor</div><div class="value">${profitFactor.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Max Drawdown</div><div class="value negative">${maxDrawdown.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">Retorno Anualizado</div><div class="value ${annualizedReturn >= 0 ? 'positive' : 'negative'}">${(annualizedReturn >= 0 ? '+' : '')}${annualizedReturn.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">Sharpe Ratio</div><div class="value">${sharpe.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Calmar Ratio</div><div class="value">${calmar.toFixed(2)}</div></div>
+            </div>
+
+            <h2>📈 Distribuição por Direção</h2>
+            <div class="grid">
+                <div class="card"><div class="label">Longs</div><div class="value">${longs.length}</div><div>Winrate: ${longWinrate.toFixed(2)}%</div><div>P&L: ${longPnl.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">Shorts</div><div class="value">${shorts.length}</div><div>Winrate: ${shortWinrate.toFixed(2)}%</div><div>P&L: ${shortPnl.toFixed(2)}%</div></div>
+            </div>
+
+            <h2>🕒 Distribuição de Duração</h2>
+            <div class="grid">
+                <div class="card"><div class="label">Média (h)</div><div class="value">${avgDuration.toFixed(1)}</div></div>
+                <div class="card"><div class="label">Mínima (h)</div><div class="value">${minDuration.toFixed(1)}</div></div>
+                <div class="card"><div class="label">Máxima (h)</div><div class="value">${maxDuration.toFixed(1)}</div></div>
+            </div>
+
+            <h2>📊 Performance Mensal</h2>
+            <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
+            <table>
+                <tr><th>Mês</th><th>Trades</th><th>Winrate</th><th>P&L %</th></tr>
+                ${monthlyData.map(m => `<tr><td>${m.month}</td><td>${m.count}</td><td>${m.winrate.toFixed(1)}%</td><td class="${m.pnl >= 0 ? 'positive' : 'negative'}">${(m.pnl >= 0 ? '+' : '')}${m.pnl.toFixed(2)}%</td></tr>`).join('')}
+            </table>
+
+            <h2>🔍 Motivos de Saída</h2>
+            <div>
+                ${Object.entries(reasons).map(([reason, count]) => `<span class="tag">${reason}: ${count}</span>`).join(' ')}
+            </div>
+
+            <h2>🧩 Eficácia dos Filtros (Bloqueios)</h2>
+            <div>
+                ${filterEffectiveness.map(f => `<span class="tag ${f.filter === 'passou_filtros' ? 'pass' : 'block'}">${f.filter}: ${f.count} (${f.pct.toFixed(1)}%)</span>`).join(' ')}
+            </div>
+
+            <h2>📋 Tabela de Trades</h2>
+            <table>
+                <tr><th>Entrada</th><th>Dir</th><th>Preço</th><th>Stop</th><th>TP1</th><th>Saída</th><th>Motivo</th><th>P&L %</th><th>Duração (h)</th></tr>
+                ${closed.map(t => `
+                    <tr>
+                        <td>${new Date(t.entryTime).toLocaleDateString()}</td>
+                        <td>${t.direction}</td>
+                        <td>$${t.entryPrice.toFixed(2)}</td>
+                        <td>$${t.stopLoss?.toFixed(2) || '--'}</td>
+                        <td>$${t.takeProfit1?.toFixed(2) || '--'}</td>
+                        <td>$${t.exitPrice?.toFixed(2) || '--'}</td>
+                        <td>${t.reason || '--'}</td>
+                        <td class="${parseFloat(t.pnlPct) >= 0 ? 'positive' : 'negative'}">${(parseFloat(t.pnlPct) >= 0 ? '+' : '')}${t.pnlPct}%</td>
+                        <td>${t.durationHours || '--'}</td>
+                    </tr>
+                `).join('')}
+            </table>
+
+            <p><small>Relatório gerado em ${new Date().toLocaleString()}</small></p>
+        </div>
+        <script>
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ${JSON.stringify(monthlyData.map(m => m.month))},
+                    datasets: [{
+                        label: 'P&L %',
+                        data: ${JSON.stringify(monthlyData.map(m => m.pnl))},
+                        backgroundColor: monthlyData.map(m => m.pnl >= 0 ? 'rgba(0,184,148,0.6)' : 'rgba(225,112,85,0.6)'),
+                        borderColor: monthlyData.map(m => m.pnl >= 0 ? '#00b894' : '#e17055'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { grid: { color: '#dfe6e9' } } }
+                }
+            });
+        <\/script>
+        </body>
+        </html>
+        `;
+
+        const blob = new Blob([reportHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Relatorio_${symbol}_${new Date().toISOString().slice(0,10)}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        const csvRows = [
+            ['Entrada', 'Direção', 'Preço Entrada', 'Stop', 'TP1', 'Saída', 'Motivo', 'P&L %', 'P&L USD', 'Duração (h)']
+        ];
+        closed.forEach(t => {
+            csvRows.push([
+                t.entryTime,
+                t.direction,
+                t.entryPrice.toFixed(2),
+                t.stopLoss?.toFixed(2) || '',
+                t.takeProfit1?.toFixed(2) || '',
+                t.exitPrice?.toFixed(2) || '',
+                t.reason || '',
+                t.pnlPct,
+                t.pnlUsd || '',
+                t.durationHours || ''
+            ]);
+        });
+        const csvContent = csvRows.map(row => row.join(',')).join('\n');
+        const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+        const csvUrl = URL.createObjectURL(csvBlob);
+        const aCsv = document.createElement('a');
+        aCsv.href = csvUrl;
+        aCsv.download = `Trades_${symbol}_${new Date().toISOString().slice(0,10)}.csv`;
+        aCsv.click();
+        URL.revokeObjectURL(csvUrl);
+
+        alert(`Relatório HTML e CSV baixados com sucesso!\nTrades: ${closed.length}`);
+    }
+
     // ===== UI =====
     const getParam = (id) => {
         const el = document.getElementById(id);
@@ -1277,7 +1482,7 @@
         status.textContent = '⏳ Preparando...';
 
         const symbol = document.getElementById('symbolSelect').value;
-        let days = parseInt(document.getElementById('days').value) || 30;
+        let days = parseInt(document.getElementById('days').value) || 999;
         days = Math.min(days, 1000);
         document.getElementById('days').value = days;
 
@@ -1295,6 +1500,7 @@
 
         try {
             const result = await runBacktest(symbol, days, params);
+            lastResult = result;
             const { trades, summary } = result;
 
             if (summary.error) {
@@ -1384,7 +1590,7 @@
                 }
             });
 
-            status.textContent = `✅ Concluído em ${new Date().toLocaleTimeString()} (máx 1000 dias)`;
+            status.textContent = `✅ Concluído em ${new Date().toLocaleTimeString()} (${trades.length} trades, ${summary.totalTrades} fechados)`;
 
         } catch (e) {
             console.error(e);
@@ -1405,7 +1611,18 @@
         e.target.value = '';
     });
 
-    console.log('Backtest Engine v2.7 carregado – Fear & Greed removido, correção de timestamp aplicada.');
+    document.getElementById('reportBtn').addEventListener('click', () => {
+        if (!lastResult) {
+            alert('Execute um backtest primeiro para gerar o relatório.');
+            return;
+        }
+        const { trades, summary } = lastResult;
+        const symbol = document.getElementById('symbolSelect').value;
+        const days = parseInt(document.getElementById('days').value) || 999;
+        generateReport(trades, summary, symbol, days);
+    });
+
+    console.log('Backtest Engine v2.8 carregado – com relatório de performance.');
 </script>
 </body>
 </html>
