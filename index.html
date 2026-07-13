@@ -3,222 +3,56 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v2.0)</title>
+    <title>Backtest Engine — SMC + MTF (v2.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #08090d;
-            color: #e6e8eb;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        h1 {
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            background: linear-gradient(90deg, #00b4d8, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: inline-block;
-        }
-        .params-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
-            background: #0f1117;
-            border: 1px solid #2a2a44;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-        .params-grid label {
-            font-size: 0.8rem;
-            color: #8b949e;
-            display: block;
-        }
-        .params-grid input[type="number"] {
-            width: 100%;
-            padding: 6px 8px;
-            border-radius: 6px;
-            border: 1px solid #2a2a44;
-            background: #1a1a2e;
-            color: #e6e8eb;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-        }
-        .params-grid input[type="checkbox"] {
-            accent-color: #6c6cff;
-            width: 18px;
-            height: 18px;
-            margin-right: 6px;
-        }
-        .params-grid .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 6px;
-        }
-        .btn-run {
-            background: #7c3aed;
-            color: #fff;
-            border: none;
-            padding: 12px 32px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-            margin-top: 8px;
-        }
-        .btn-run:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(124, 58, 237, 0.5); }
-        .btn-run:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .status-bar {
-            margin: 12px 0 16px 0;
-            font-size: 0.9rem;
-            color: #8b949e;
-            min-height: 1.5em;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin: 16px 0 24px 0;
-        }
-        .stat-card {
-            background: #0f1117;
-            border: 1px solid #2a2a44;
-            border-radius: 10px;
-            padding: 16px;
-            text-align: center;
-        }
-        .stat-card .label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #6b7280;
-            letter-spacing: 0.5px;
-        }
-        .stat-card .value {
-            font-size: 1.6rem;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
-            margin-top: 4px;
-        }
-        .stat-card .value.positive { color: #00e896; }
-        .stat-card .value.negative { color: #ff4d6d; }
-        .table-wrapper {
-            overflow-x: auto;
-            background: #0f1117;
-            border: 1px solid #2a2a44;
-            border-radius: 12px;
-            margin: 16px 0 24px 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-        th {
-            text-align: left;
-            padding: 12px 16px;
-            color: #6b7280;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #2a2a44;
-        }
-        td {
-            padding: 10px 16px;
-            border-bottom: 1px solid #1a1a2e;
-            font-family: 'JetBrains Mono', monospace;
-        }
-        tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
-        .positive { color: #00e896; }
-        .negative { color: #ff4d6d; }
-        .chart-wrapper {
-            background: #0f1117;
-            border: 1px solid #2a2a44;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            height: 320px;
-        }
-        .diagnostic {
-            background: #0f1117;
-            border: 1px solid #2a2a44;
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0;
-        }
-        .diagnostic .tag {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            margin: 4px 6px 4px 0;
-            background: #1a1a2e;
-            border: 1px solid #2a2a44;
-        }
-        .diagnostic .tag.pass { background: rgba(0, 232, 150, 0.15); color: #00e896; border-color: #00e896; }
-        .diagnostic .tag.block { background: rgba(255, 77, 109, 0.15); color: #ff4d6d; border-color: #ff4d6d; }
-        .legend {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-top: 8px;
-            padding: 12px;
-            background: #0f1117;
-            border-radius: 8px;
-            border: 1px solid #2a2a44;
-        }
-        @media (max-width: 768px) {
-            .params-grid { grid-template-columns: 1fr 1fr; }
-            .stats-grid { grid-template-columns: 1fr 1fr; }
-        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,sans-serif; background:#08090d; color:#e6e8eb; padding:20px; min-height:100vh; }
+        .container { max-width:1400px; margin:0 auto; }
+        h1 { font-size:1.8rem; margin-bottom:20px; background:linear-gradient(90deg,#00b4d8,#7c3aed); -webkit-background-clip:text; -webkit-text-fill-color:transparent; display:inline-block; }
+        .params-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; background:#0f1117; border:1px solid #2a2a44; border-radius:12px; padding:20px; margin-bottom:24px; }
+        .params-grid label { font-size:0.8rem; color:#8b949e; display:block; }
+        .params-grid input[type="number"] { width:100%; padding:6px 8px; border-radius:6px; border:1px solid #2a2a44; background:#1a1a2e; color:#e6e8eb; font-family:'JetBrains Mono',monospace; font-size:0.9rem; }
+        .params-grid input[type="checkbox"] { accent-color:#6c6cff; width:18px; height:18px; margin-right:6px; }
+        .params-grid .checkbox-group { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+        .btn-run { background:#7c3aed; color:#fff; border:none; padding:12px 32px; border-radius:8px; font-weight:600; font-size:1rem; cursor:pointer; transition:all .2s; box-shadow:0 4px 15px rgba(124,58,237,.3); margin-top:8px; }
+        .btn-run:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(124,58,237,.5); }
+        .btn-run:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+        .status-bar { margin:12px 0 16px; font-size:.9rem; color:#8b949e; min-height:1.5em; }
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:16px 0 24px; }
+        .stat-card { background:#0f1117; border:1px solid #2a2a44; border-radius:10px; padding:16px; text-align:center; }
+        .stat-card .label { font-size:.7rem; text-transform:uppercase; color:#6b7280; letter-spacing:.5px; }
+        .stat-card .value { font-size:1.6rem; font-weight:700; font-family:'JetBrains Mono',monospace; margin-top:4px; }
+        .stat-card .value.positive { color:#00e896; }
+        .stat-card .value.negative { color:#ff4d6d; }
+        .table-wrapper { overflow-x:auto; background:#0f1117; border:1px solid #2a2a44; border-radius:12px; margin:16px 0 24px; }
+        table { width:100%; border-collapse:collapse; font-size:.85rem; }
+        th { text-align:left; padding:12px 16px; color:#6b7280; text-transform:uppercase; font-size:.7rem; letter-spacing:.5px; border-bottom:1px solid #2a2a44; }
+        td { padding:10px 16px; border-bottom:1px solid #1a1a2e; font-family:'JetBrains Mono',monospace; }
+        tbody tr:hover { background:rgba(255,255,255,.02); }
+        .positive { color:#00e896; }
+        .negative { color:#ff4d6d; }
+        .chart-wrapper { background:#0f1117; border:1px solid #2a2a44; border-radius:12px; padding:20px; margin:20px 0; height:320px; }
+        .diagnostic { background:#0f1117; border:1px solid #2a2a44; border-radius:12px; padding:16px; margin:16px 0; }
+        .diagnostic .tag { display:inline-block; padding:4px 12px; border-radius:6px; font-size:.75rem; margin:4px 6px 4px 0; background:#1a1a2e; border:1px solid #2a2a44; }
+        .diagnostic .tag.pass { background:rgba(0,232,150,.15); color:#00e896; border-color:#00e896; }
+        .diagnostic .tag.block { background:rgba(255,77,109,.15); color:#ff4d6d; border-color:#ff4d6d; }
+        .legend { font-size:.75rem; color:#6b7280; margin-top:8px; padding:12px; background:#0f1117; border-radius:8px; border:1px solid #2a2a44; }
+        @media (max-width:768px){ .params-grid{grid-template-columns:1fr 1fr;} .stats-grid{grid-template-columns:1fr 1fr;} }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v2.0)</h1>
-
-    <!-- ===== PARÂMETROS ===== -->
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.1)</h1>
     <div class="params-grid">
-        <div>
-            <label>Score mínimo LONG</label>
-            <input type="number" id="scoreMin" value="68" min="0" max="100" step="1">
-        </div>
-        <div>
-            <label>Score máximo SHORT</label>
-            <input type="number" id="scoreMaxShort" value="32" min="0" max="100" step="1">
-        </div>
-        <div>
-            <label>ADX mínimo (base)</label>
-            <input type="number" id="adxMin" value="22" min="0" max="100" step="1">
-        </div>
-        <div>
-            <label>R:R mínimo</label>
-            <input type="number" id="rrMin" value="1.8" min="0.1" max="10" step="0.1">
-        </div>
-        <div>
-            <label>Retest dist (%)</label>
-            <input type="number" id="retestDist" value="2.0" min="0.1" max="10" step="0.1">
-        </div>
-        <div>
-            <label>Dias de backtest (máx 1000)</label>
-            <input type="number" id="days" value="30" min="1" max="1000" step="1">
-        </div>
-        <div>
-            <label>Ativo</label>
-            <select id="symbolSelect" style="width:100%;padding:6px;border-radius:6px;border:1px solid #2a2a44;background:#1a1a2e;color:#e6e8eb;font-size:0.9rem;">
+        <div><label>Score mínimo LONG</label><input type="number" id="scoreMin" value="68" min="0" max="100" step="1"></div>
+        <div><label>Score máximo SHORT</label><input type="number" id="scoreMaxShort" value="32" min="0" max="100" step="1"></div>
+        <div><label>ADX mínimo (base)</label><input type="number" id="adxMin" value="22" min="0" max="100" step="1"></div>
+        <div><label>R:R mínimo</label><input type="number" id="rrMin" value="1.8" min="0.1" max="10" step="0.1"></div>
+        <div><label>Retest dist (%)</label><input type="number" id="retestDist" value="2.0" min="0.1" max="10" step="0.1"></div>
+        <div><label>Dias de backtest (máx 1000)</label><input type="number" id="days" value="30" min="1" max="1000" step="1"></div>
+        <div><label>Ativo</label>
+            <select id="symbolSelect" style="width:100%;padding:6px;border-radius:6px;border:1px solid #2a2a44;background:#1a1a2e;color:#e6e8eb;font-size:.9rem;">
                 <option value="BTCUSDT">BTCUSDT</option>
                 <option value="ETHUSDT">ETHUSDT</option>
                 <option value="SOLUSDT">SOLUSDT</option>
@@ -235,8 +69,6 @@
             <span id="status" class="status-bar">Aguardando execução...</span>
         </div>
     </div>
-
-    <!-- ===== ESTATÍSTICAS ===== -->
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="label">Total Trades</div><div class="value" id="st-trades">--</div></div>
         <div class="stat-card"><div class="label">Winrate</div><div class="value" id="st-winrate">--</div></div>
@@ -246,39 +78,22 @@
         <div class="stat-card"><div class="label">Drawdown</div><div class="value" id="st-dd">--</div></div>
         <div class="stat-card"><div class="label">Retorno Anualizado</div><div class="value" id="st-ann">--</div></div>
     </div>
-
-    <!-- ===== GRÁFICO DE EQUITY ===== -->
     <div class="chart-wrapper"><canvas id="equityChart"></canvas></div>
-
-    <!-- ===== TABELA DE TRADES ===== -->
     <div class="table-wrapper">
-        <table>
-            <thead><tr>
-                <th>Entrada</th><th>Ativo</th><th>Dir</th><th>Preço Entrada</th>
-                <th>Stop</th><th>TP1</th><th>Saída</th><th>Motivo</th><th>P&L %</th><th>Duração (h)</th>
-            </tr></thead>
+        <table><thead><tr><th>Entrada</th><th>Ativo</th><th>Dir</th><th>Preço Entrada</th><th>Stop</th><th>TP1</th><th>Saída</th><th>Motivo</th><th>P&L %</th><th>Duração (h)</th></tr></thead>
             <tbody id="tradesBody"><tr><td colspan="10" style="text-align:center;color:#6b7280;">Nenhum backtest executado.</td></tr></tbody>
         </table>
     </div>
-
-    <!-- ===== DIAGNÓSTICO ===== -->
-    <div class="diagnostic" id="diagnostic" style="display:none;">
-        <strong>🔍 Diagnóstico de bloqueios</strong>
-        <div id="blockStats"></div>
-    </div>
-
-    <div class="legend">
-        <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics), Fear & Greed (alternative.me). Carteira inicial: $10.000 USD. <br>
-        <strong>Limite máximo:</strong> 1000 dias (≈2,7 anos) – dados completos de preço, funding e OI; MVRV e Fear & Greed com fallback.
-    </div>
+    <div class="diagnostic" id="diagnostic" style="display:none;"><strong>🔍 Diagnóstico de bloqueios</strong><div id="blockStats"></div></div>
+    <div class="legend"><strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics), Fear & Greed (alternative.me). Carteira inicial: $10.000 USD.<br><strong>Limite máximo:</strong> 1000 dias (≈2,7 anos) – dados completos de preço, funding e OI; MVRV e Fear & Greed com fallback.</div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v2.0 – COM TODAS AS MELHORIAS
+    // BACKTEST ENGINE v2.1 – CÓDIGO COMPLETO
     // ============================================================
 
-    // ===== FUNÇÕES AUXILIARES (mantidas, com ajustes de retry) =====
+    // ----- AUXILIARES -----
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -442,14 +257,12 @@
     };
 
     const checkLateralMarket = (adxValue, threshold = 20) => adxValue < threshold;
-
     const checkDerivativesFilter = (fundingRate, oiDelta) => {
         if (fundingRate > 0.0010) return { allow: false, reason: 'Funding muito positivo' };
         if (fundingRate < -0.0010) return { allow: false, reason: 'Funding muito negativo' };
         if (Math.abs(oiDelta) > 10) return { allow: false, reason: 'OI Delta extremo' };
         return { allow: true, reason: 'OK' };
     };
-
     const detectVolumeAnomaly = (candles, period = 20, threshold = 1.5) => {
         if (candles.length < period) return null;
         const volumes = candles.map(c => c.volume);
@@ -460,14 +273,12 @@
         if (ratio < 1 / threshold) return { type: 'LOW', ratio };
         return null;
     };
-
     const KellyPositionSize = (winRate, rr) => {
         if (winRate <= 0 || winRate >= 1) return 0.02;
         if (rr <= 0) return 0.02;
         const k = (winRate * (rr + 1) - 1) / rr;
         return Math.min(Math.max(k, 0.01), 0.1);
     };
-
     const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
         const data = assetsData[symbol];
         if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
@@ -496,7 +307,6 @@
             blockReason
         };
     };
-
     const calculateConfidenceScore = ({ mtfAligned, adx, volumeAnomaly, fundingRate, openInterestTrend, divergence, macroBlackout, smcStructure, direction, scoreMinLong = 60, scoreMaxShort = 40 }) => {
         let score = 50;
         const reasons = [];
@@ -532,8 +342,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ===== FETCH FUNCTIONS COM MELHORIAS =====
-    // Retry com backoff exponencial
+    // ----- FETCH COM MELHORIAS E FALLBACK -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -549,47 +358,56 @@
         }
     };
 
-    const fetchHistoricalCandles = async (symbol, interval, limit = 1000) => {
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-        const data = await fetchWithRetry(url, {}, 3);
-        return data.map(k => ({
-            time: k[0],
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4]),
-            volume: parseFloat(k[5])
-        }));
-    };
-
     const fetchHistoricalCandlesPaged = async (symbol, interval, startTime, endTime, limit = 1000) => {
         let all = [];
         let currentStart = startTime;
-        while (currentStart < endTime) {
+        let attempt = 0;
+        while (currentStart < endTime && attempt < 30) {
+            attempt++;
             const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${currentStart}&endTime=${endTime}&limit=${limit}`;
-            const data = await fetchWithRetry(url, {}, 3);
-            if (!data || data.length === 0) break;
-            const mapped = data.map(k => ({
-                time: k[0],
-                open: parseFloat(k[1]),
-                high: parseFloat(k[2]),
-                low: parseFloat(k[3]),
-                close: parseFloat(k[4]),
-                volume: parseFloat(k[5])
-            }));
-            all = all.concat(mapped);
-            const lastTime = mapped[mapped.length - 1].time;
-            if (lastTime >= endTime) break;
-            currentStart = lastTime + 1;
-            // Delay dinâmico
-            const callCount = Math.ceil((currentStart - startTime) / (limit * 24 * 60 * 60 * 1000));
-            const delay = Math.min(300 + callCount * 50, 1000);
-            await new Promise(r => setTimeout(r, delay));
+            try {
+                const data = await fetchWithRetry(url, {}, 3);
+                if (!data || data.length === 0) break;
+                const mapped = data.map(k => ({
+                    time: k[0],
+                    open: parseFloat(k[1]),
+                    high: parseFloat(k[2]),
+                    low: parseFloat(k[3]),
+                    close: parseFloat(k[4]),
+                    volume: parseFloat(k[5])
+                }));
+                all = all.concat(mapped);
+                const lastTime = mapped[mapped.length - 1].time;
+                if (lastTime >= endTime) break;
+                currentStart = lastTime + 1;
+                const callCount = Math.ceil((currentStart - startTime) / (limit * 24 * 60 * 60 * 1000));
+                const delay = Math.min(100 + callCount * 30, 500);
+                await new Promise(r => setTimeout(r, delay));
+            } catch (e) {
+                console.warn(`Falha na paginação (${attempt}), tentando fallback...`);
+                try {
+                    const fallbackUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=1000`;
+                    const fallbackData = await fetchWithRetry(fallbackUrl, {}, 3);
+                    if (fallbackData && fallbackData.length > 0) {
+                        const mapped = fallbackData.map(k => ({
+                            time: k[0],
+                            open: parseFloat(k[1]),
+                            high: parseFloat(k[2]),
+                            low: parseFloat(k[3]),
+                            close: parseFloat(k[4]),
+                            volume: parseFloat(k[5])
+                        }));
+                        const filtered = mapped.filter(c => c.time >= startTime && c.time <= endTime);
+                        all = all.concat(filtered);
+                        console.log(`Fallback obteve ${filtered.length} velas.`);
+                    }
+                } catch (fb) { /* ignora */ }
+                break;
+            }
         }
         return all;
     };
 
-    // Funding com paginação completa
     const fetchHistoricalFunding = async (symbol, startTime, endTime) => {
         let all = [];
         let currentStart = startTime;
@@ -604,15 +422,13 @@
                 const lastTime = mapped[mapped.length - 1].time;
                 if (lastTime >= endTime) break;
                 currentStart = lastTime + 1;
-                const callCount = Math.ceil((currentStart - startTime) / (limit * 8 * 60 * 60 * 1000));
-                const delay = Math.min(300 + callCount * 50, 1000);
+                const delay = Math.min(100 + Math.ceil((currentStart - startTime) / (limit * 8 * 60 * 60 * 1000)) * 30, 500);
                 await new Promise(r => setTimeout(r, delay));
             } catch (e) { break; }
         }
         return all;
     };
 
-    // OI com paginação completa
     const fetchHistoricalOI = async (symbol, startTime, endTime) => {
         let all = [];
         let currentStart = startTime;
@@ -627,15 +443,13 @@
                 const lastTime = mapped[mapped.length - 1].time;
                 if (lastTime >= endTime) break;
                 currentStart = lastTime + 1;
-                const callCount = Math.ceil((currentStart - startTime) / (limit * 60 * 60 * 1000));
-                const delay = Math.min(300 + callCount * 50, 1000);
+                const delay = Math.min(100 + Math.ceil((currentStart - startTime) / (limit * 60 * 60 * 1000)) * 30, 500);
                 await new Promise(r => setTimeout(r, delay));
             } catch (e) { break; }
         }
         return all;
     };
 
-    // MVRV com fallback
     const fetchHistoricalMVRV = async (startDate, endDate) => {
         const url = `https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMVRVCur&frequency=1d&start_time=${startDate}&end_time=${endDate}&page_size=1000`;
         try {
@@ -647,7 +461,6 @@
         }
     };
 
-    // Fear & Greed com fallback
     const fetchFearGreedHistorical = async (limit = 1000) => {
         const url = `https://api.alternative.me/fng/?limit=${limit}`;
         try {
@@ -666,7 +479,7 @@
         return null;
     };
 
-    // ===== BACKTEST PRINCIPAL =====
+    // ----- BACKTEST PRINCIPAL -----
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -680,9 +493,7 @@
             ignoreRetest = false
         } = options;
 
-        // Limitar dias a 1000
         days = Math.min(days, 1000);
-
         const now = Date.now();
         const startTime = now - days * 24 * 60 * 60 * 1000;
         const endTime = now;
@@ -691,7 +502,6 @@
 
         console.log(`[Backtest] ${symbol} - ${days} dias (máx 1000)`);
 
-        // Busca dados
         const [candles1h, candles4h, fundingHist, oiHist, mvrvHist, fgHist] = await Promise.all([
             fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
             fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
@@ -701,11 +511,15 @@
             fetchFearGreedHistorical(500)
         ]);
 
-        // Validação de integridade
+        console.log(`Obtidos ${candles1h.length} candles 1h, ${candles4h.length} candles 4h`);
+
         const requiredCandles = days * 24;
-        if (candles1h.length < Math.min(requiredCandles, 100)) {
-            return { trades: [], summary: { error: `Dados insuficientes: obtidos ${candles1h.length} candles, necessário ${Math.min(requiredCandles, 100)}.` } };
+        let minCandles = 20;
+        if (days >= 2) minCandles = 50;
+        if (candles1h.length < minCandles) {
+            return { trades: [], summary: { error: `Dados insuficientes: obtidos ${candles1h.length} velas, necessário ${minCandles}.` } };
         }
+
         const fundingCoverage = fundingHist.length / (days * 24);
         if (fundingCoverage < 0.5) {
             console.warn(`Cobertura de funding baixa: ${(fundingCoverage*100).toFixed(1)}% – os filtros podem não funcionar corretamente.`);
@@ -718,37 +532,18 @@
         if (fgHist.length === 0) console.warn('Dados Fear & Greed não disponíveis – filtro macro desativado.');
 
         const filteredCandles = candles1h.filter(c => c.time >= startTime / 1000 && c.time <= endTime / 1000);
-        if (filteredCandles.length < 50) {
-            return { trades: [], summary: { error: 'Dados insuficientes após filtragem.' } };
+        if (filteredCandles.length < minCandles) {
+            return { trades: [], summary: { error: `Dados insuficientes após filtragem: ${filteredCandles.length} velas.` } };
         }
 
         const state = {
-            candles1H: [],
-            candles4H: candles4h || [],
-            ema50_1H: 0,
-            ema200_4H: 0,
-            rsi_1H: 50,
-            atr_1H: 0,
-            atrHistory: [],
-            swingHighs: [],
-            swingLows: [],
-            currentBOS: 'NEUTRAL',
-            htfStructure: { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity },
-            mtfConfluence: null,
-            adx: 0,
-            divergence: null,
-            divergence4H: null,
-            volumeAnomaly: null,
-            macroBlackout: false,
-            vwap: 0,
-            price: 0,
-            fundingRate: 0,
-            oiDelta: 0,
-            mvrv: null,
-            fearGreedData: { value: 50 },
-            fundingHistory: [],
-            oiDeltaHistory: [],
-            bandwidthHistory: []
+            candles1H: [], candles4H: candles4h || [], ema50_1H: 0, ema200_4H: 0,
+            rsi_1H: 50, atr_1H: 0, atrHistory: [], swingHighs: [], swingLows: [],
+            currentBOS: 'NEUTRAL', htfStructure: { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity },
+            mtfConfluence: null, adx: 0, divergence: null, divergence4H: null,
+            volumeAnomaly: null, macroBlackout: false, vwap: 0, price: 0,
+            fundingRate: 0, oiDelta: 0, mvrv: null, fearGreedData: { value: 50 },
+            fundingHistory: [], oiDeltaHistory: [], bandwidthHistory: []
         };
 
         let position = null;
@@ -793,7 +588,6 @@
                 state.htfStructure = detectHTFStructure(state, relevant4H);
             }
 
-            // RSI 1H para divergência
             let rsiForDiv = [];
             let g = 0, l = 0;
             for (let i = 1; i < closes.length; i++) {
@@ -819,7 +613,6 @@
                 state.divergence = div;
             }
 
-            // Divergência em 4H
             if (relevant4H.length >= 30) {
                 const closes4H = relevant4H.map(c => c.close);
                 let rsi4H = [];
@@ -849,7 +642,6 @@
             }
         };
 
-        // MTF histórico
         const getMTFAlignmentAtTime = (currentTime) => {
             const relevant1H = state.candles1H.filter(c => c.time <= currentTime).slice(-50);
             const relevant4H = state.candles4H.filter(c => c.time <= currentTime).slice(-50);
@@ -900,13 +692,13 @@
 
             state.mtfConfluence = getMTFAlignmentAtTime(candle.time);
 
-            if (state.candles1H.length >= 50) {
+            if (state.candles1H.length >= 20) {
                 updateIndicators(state.candles1H, candle.time);
             } else {
                 continue;
             }
 
-            // ===== FILTROS DE VOLATILIDADE (Bollinger) =====
+            // Filtro de volatilidade (Bollinger)
             const closes = state.candles1H.slice(-20).map(c => c.close);
             if (closes.length >= 20) {
                 const sma = closes.reduce((a,b) => a+b, 0) / 20;
@@ -919,25 +711,24 @@
                     const avgBW = state.bandwidthHistory.slice(-20).reduce((a,b) => a+b, 0) / 20;
                     if (bandwidth < avgBW * 0.7) {
                         blockStats['baixa_volatilidade_bb'] = (blockStats['baixa_volatilidade_bb'] || 0) + 1;
-                        continue; // pula esta vela
+                        continue;
                     }
                 }
             }
 
-            // ===== Z-SCORE FUNDING =====
-            let fundingZ = 0;
+            // Z-score Funding
             if (state.fundingHistory.length >= 20) {
                 const mean = state.fundingHistory.reduce((a,b) => a+b, 0) / state.fundingHistory.length;
                 const variance = state.fundingHistory.reduce((s, v) => s + (v-mean)**2, 0) / state.fundingHistory.length;
                 const std = Math.sqrt(variance);
-                fundingZ = (state.fundingRate - mean) / (std || 1);
-                if (Math.abs(fundingZ) > 1.5) {
-                    blockStats[`funding_extremo_z${fundingZ.toFixed(2)}`] = (blockStats[`funding_extremo_z${fundingZ.toFixed(2)}`] || 0) + 1;
+                const z = (state.fundingRate - mean) / (std || 1);
+                if (Math.abs(z) > 1.5) {
+                    blockStats[`funding_extremo_z${z.toFixed(2)}`] = (blockStats[`funding_extremo_z${z.toFixed(2)}`] || 0) + 1;
                     continue;
                 }
             }
 
-            // ===== Z-SCORE OI =====
+            // Z-score OI
             if (state.oiDeltaHistory.length >= 20) {
                 const meanO = state.oiDeltaHistory.reduce((a,b) => a+b, 0) / state.oiDeltaHistory.length;
                 const varO = state.oiDeltaHistory.reduce((s, v) => s + (v-meanO)**2, 0) / state.oiDeltaHistory.length;
@@ -1041,7 +832,6 @@
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
-                // Trailing adaptativo com volatilidade
                 const returns = state.candles1H.slice(-30).map(c => (c.close - c.open)/c.open);
                 const std = Math.sqrt(returns.reduce((s, r) => s + r*r, 0) / returns.length);
                 const volatilityFactor = Math.min(Math.max(std * 2, 0.5), 2.0);
@@ -1086,7 +876,6 @@
                     else lossCount++;
                     position = null;
                 } else {
-                    // Atualizar trailing stop adaptativo
                     if (position.type === 'LONG') {
                         if (state.swingLows.length > 0) {
                             const newLow = Math.min(...state.swingLows);
@@ -1141,7 +930,7 @@
                 const retestPassed = retestRequired ? retestConfirmed : true;
                 const structureOk = bosPassed && retestPassed;
 
-                // ===== FILTRO DE VOLUME E FECHAMENTO =====
+                // Filtro de volume e fechamento
                 const volumeAvg = state.candles1H.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
                 const volumeOk = state.candles1H[state.candles1H.length - 1].volume >= volumeAvg * 1.5;
                 const closeBreakOk = (primaryDirection === 'LONG' && candle.close > brokenLevel) ||
@@ -1150,7 +939,7 @@
                     blockReason = 'volume_insuficiente_ou_fechamento_fraco';
                 }
 
-                // ===== CONFIRMAÇÃO DE CORPO DE CANDLE =====
+                // Corpo do candle
                 const body = Math.abs(candle.close - candle.open);
                 const range = candle.high - candle.low;
                 if (range > 0 && body / range < 0.5) {
@@ -1169,14 +958,11 @@
                 }
                 blockStats[reasonKey] = (blockStats[reasonKey] || 0) + 1;
 
-                // Bônus de divergência 4H
+                // Bônus divergência 4H
                 if (state.divergence4H) {
                     if ((state.divergence4H.type === 'BULLISH_REGULAR' && primaryDirection === 'LONG') ||
                         (state.divergence4H.type === 'BEARISH_REGULAR' && primaryDirection === 'SHORT')) {
                         score += 8;
-                        if (score >= scoreMin || score <= scoreMaxShort) {
-                            // forçar entrada
-                        }
                     }
                 }
 
@@ -1319,7 +1105,7 @@
         return { trades, summary };
     }
 
-    // ===== UI INTERFACE =====
+    // ----- UI -----
     const getParam = (id) => {
         const el = document.getElementById(id);
         if (el.type === 'checkbox') return el.checked;
@@ -1334,8 +1120,8 @@
 
         const symbol = document.getElementById('symbolSelect').value;
         let days = parseInt(document.getElementById('days').value) || 30;
-        days = Math.min(days, 1000); // limite
-        document.getElementById('days').value = days; // atualiza UI
+        days = Math.min(days, 1000);
+        document.getElementById('days').value = days;
 
         const params = {
             scoreMin: getParam('scoreMin'),
@@ -1359,7 +1145,6 @@
                 return;
             }
 
-            // Atualiza estatísticas
             document.getElementById('st-trades').textContent = summary.totalTrades;
             document.getElementById('st-winrate').textContent = summary.winrate.toFixed(2) + '%';
             document.getElementById('st-winrate').className = 'value ' + (summary.winrate > 50 ? 'positive' : 'negative');
@@ -1373,7 +1158,6 @@
             document.getElementById('st-ann').textContent = summary.annualizedReturn.toFixed(2) + '%';
             document.getElementById('st-ann').className = 'value ' + (summary.annualizedReturn >= 0 ? 'positive' : 'negative');
 
-            // Tabela
             const tbody = document.getElementById('tradesBody');
             if (trades.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6b7280;">Nenhum trade gerado.</td></tr>';
@@ -1398,7 +1182,6 @@
                 tbody.innerHTML = html;
             }
 
-            // Diagnóstico
             const diagDiv = document.getElementById('diagnostic');
             const statsDiv = document.getElementById('blockStats');
             if (summary.blockStats && Object.keys(summary.blockStats).length > 0) {
@@ -1415,7 +1198,6 @@
                 diagDiv.style.display = 'none';
             }
 
-            // Gráfico
             const equityData = summary.equityCurve || [{ x: 0, y: 10000 }];
             const ctx = document.getElementById('equityChart').getContext('2d');
             if (window.equityChartInstance) window.equityChartInstance.destroy();
@@ -1436,9 +1218,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#e6e8eb' } }
-                    },
+                    plugins: { legend: { labels: { color: '#e6e8eb' } } },
                     scales: {
                         x: { grid: { color: '#1a1a2e' }, ticks: { color: '#6b7280' } },
                         y: { grid: { color: '#1a1a2e' }, ticks: { color: '#6b7280' } }
