@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.1)</title>
+    <title>Backtest Engine — SMC + MTF (v3.1.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -50,7 +50,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.1)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.1.1)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -110,13 +110,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.1:</strong> BOS corrigido para SHORT, MTF com gradiente, funding simétrico, retest por ATR, ADX cacheado, Z-score parametrizado, doji bloqueia trailing.
+        <strong>v3.1.1:</strong> Timestamp corrigido, BOS para ambas direções, retest por ATR, Bollinger (0.6), doji na entrada e trailing, volume, MTF gradiente, funding simétrico, ADX cacheado, Z-score parametrizado.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.1 – TODAS AS MELHORIAS
+    // BACKTEST ENGINE v3.1.1 – CÓDIGO COMPLETO E AJUSTADO
     // ============================================================
 
     import * as indicator from './indicator.js';
@@ -131,7 +131,7 @@
     let lastResult = null;
     let lastParams = null;
 
-    // ----- FETCH (mesmo código da v3.0) -----
+    // ----- FETCH (com paginação) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -356,20 +356,20 @@
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COM TODAS AS MELHORIAS =====
+    // ===== BACKTEST COMPLETO COM TODAS AS CORREÇÕES =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
             scoreMaxShort = 32,
             adxMin = 22,
             rrMin = 1.8,
-            retestDistPct = 2.0,   // agora em ATRs (ex: 2.0 = 2 ATRs)
+            retestDistPct = 2.0,   // em ATRs
             emaRetest = false,
             mtfRequired = true,
             ignoreBOS = false,
             ignoreRetest = false,
-            zFundingMax = 1.5,      // parâmetro para isolar o filtro de funding
-            zOiMax = 1.5            // parâmetro para isolar o filtro de OI
+            zFundingMax = 1.5,
+            zOiMax = 1.5
         } = options;
 
         days = Math.min(days, 1000);
@@ -417,9 +417,13 @@
 
         console.log(`Obtidos ${candles1h.length} candles 1h, ${candles4h.length} candles 4h`);
 
+        // ===== FILTRAGEM CORRIGIDA (ms) =====
+        const filteredCandles = candles1h.filter(c => c.time >= startTime && c.time <= endTime);
+        console.log(`Filtrados para o período: ${filteredCandles.length} candles`);
+
         const minCandles = (days >= 2) ? 50 : 20;
-        if (candles1h.length < minCandles) {
-            let msg = `Dados insuficientes: obtidos ${candles1h.length} velas, necessário ${minCandles}.`;
+        if (filteredCandles.length < minCandles) {
+            let msg = `Dados insuficientes: obtidos ${filteredCandles.length} velas no período, necessário ${minCandles}.`;
             if (!needFetch && cachedData.candles1h.length > 0) {
                 const lastTime = cachedData.candles1h[cachedData.candles1h.length - 1]?.time;
                 if (lastTime) {
@@ -431,8 +435,6 @@
             return { trades: [], summary: { error: msg } };
         }
 
-        const filteredCandles = candles1h;
-
         const state = {
             candles1H: [], candles4H: candles4h || [], ema50_1H: 0, ema200_4H: 0,
             rsi_1H: 50, atr_1H: 0, atrHistory: [], swingHighs: [], swingLows: [],
@@ -441,9 +443,7 @@
             volumeAnomaly: null, macroBlackout: false, vwap: 0, price: 0,
             fundingRate: 0, oiDelta: 0, mvrv: null,
             fundingHistory: [], oiDeltaHistory: [], bandwidthHistory: [],
-            // Cache para ADX dinâmico
             adxRolling: [],
-            // Fator de volatilidade consolidado (calculado uma vez por candle)
             volatilityFactor: 1.0
         };
 
@@ -542,7 +542,7 @@
                 }
             }
 
-            // Consolidar cálculo do volatilityFactor (usado tanto no TP quanto no trailing)
+            // volatilityFactor consolidado
             const returns30 = candles.slice(-30).map(c => (c.close - c.open) / c.open);
             if (returns30.length > 0) {
                 const std = Math.sqrt(returns30.reduce((s, r) => s + r * r, 0) / returns30.length);
@@ -611,7 +611,7 @@
                 continue;
             }
 
-            // Bollinger (volatilidade) – threshold ajustado para 0.6
+            // Bollinger (volatilidade) – threshold 0.6
             const closes = state.candles1H.slice(-20).map(c => c.close);
             if (closes.length >= 20) {
                 const sma = closes.reduce((a,b) => a+b, 0) / 20;
@@ -629,7 +629,7 @@
                 }
             }
 
-            // Z-score Funding – agora parametrizado
+            // Z-score Funding (parametrizado)
             if (state.fundingHistory.length >= 20) {
                 const mean = state.fundingHistory.reduce((a,b) => a+b, 0) / state.fundingHistory.length;
                 const variance = state.fundingHistory.reduce((s, v) => s + (v-mean)**2, 0) / state.fundingHistory.length;
@@ -641,7 +641,7 @@
                 }
             }
 
-            // Z-score OI – parametrizado
+            // Z-score OI (parametrizado)
             if (state.oiDeltaHistory.length >= 20) {
                 const meanO = state.oiDeltaHistory.reduce((a,b) => a+b, 0) / state.oiDeltaHistory.length;
                 const varO = state.oiDeltaHistory.reduce((s, v) => s + (v-meanO)**2, 0) / state.oiDeltaHistory.length;
@@ -710,7 +710,7 @@
             let score = confidence.score;
             let blockReason = scoreData.blockReason;
 
-            // ADX dinâmico com cache (elimina O(n²))
+            // ADX dinâmico com cache
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -844,7 +844,7 @@
                 if (!retestConfirmed && emaRetest) {
                     const ema20 = indicator.calcEMA(state.candles1H.map(c => c.close), 20).slice(-1)[0] || state.price;
                     const emaDist = Math.abs(state.price - ema20) / (state.atr_1H || (state.price * 0.01));
-                    retestConfirmed = emaDist < 0.5; // 0.5 ATR de distância
+                    retestConfirmed = emaDist < 0.5;
                     if (retestConfirmed) smcSetup = true;
                 }
 
@@ -854,6 +854,7 @@
                 const retestPassed = retestRequired ? retestConfirmed : true;
                 const structureOk = bosPassed && retestPassed;
 
+                // Filtro de volume
                 const volumeAvg = state.candles1H.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
                 const volumeOk = state.candles1H[state.candles1H.length - 1].volume >= volumeAvg * 1.5;
                 const closeBreakOk = (primaryDirection === 'LONG' && candle.close > brokenLevel) ||
@@ -862,6 +863,7 @@
                     blockReason = 'volume_insuficiente_ou_fechamento_fraco';
                 }
 
+                // Filtro doji na entrada
                 const body = Math.abs(candle.close - candle.open);
                 const range = candle.high - candle.low;
                 if (range > 0 && body / range < 0.5) {
@@ -1022,7 +1024,7 @@
         return { trades, summary };
     }
 
-    // ===== FUNÇÃO PARA GERAR RELATÓRIO (com correções de datas) =====
+    // ===== FUNÇÃO PARA GERAR RELATÓRIO (com datas corrigidas) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1297,7 +1299,7 @@
             requireMTF: getParam('requireMTF'),
             requireBOS: getParam('requireBOS'),
             requireRetest: getParam('requireRetest'),
-            zFundingMax: 1.5,  // valor padrão, pode ser exposto no futuro
+            zFundingMax: 1.5,
             zOiMax: 1.5
         };
 
@@ -1426,7 +1428,7 @@
         generateReport(trades, summary, symbol, days, lastParams);
     });
 
-    console.log('Backtest Engine v3.1 carregado – todas as melhorias aplicadas.');
+    console.log('Backtest Engine v3.1.1 carregado – todas as correções aplicadas.');
 </script>
 </body>
-</html>.
+</html>
