@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v2.8)</title>
+    <title>Backtest Engine — SMC + MTF (v2.9)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -50,7 +50,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v2.8)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v2.9)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -110,16 +110,15 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>Relatório:</strong> Exporta métricas detalhadas, gráficos, análise por fatores e CSV de trades.
+        <strong>Relatório:</strong> Exporta métricas detalhadas, gráficos, análise por fatores e CSV de trades, incluindo os parâmetros usados no backtest.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v2.8 – CÓDIGO COMPLETO
+    // BACKTEST ENGINE v2.9 – CÓDIGO COMPLETO
     // ============================================================
 
-    // ----- Variáveis globais -----
     let cachedData = {
         candles1h: [],
         candles4h: [],
@@ -128,6 +127,7 @@
         mvrv: []
     };
     let lastResult = null;
+    let lastParams = null;
 
     // ----- FUNÇÕES AUXILIARES -----
     const calcEMA = (data, period) => {
@@ -378,7 +378,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ----- FETCH (com paginação e fallback, sem Fear & Greed) -----
+    // ----- FETCH COM PAGINAÇÃO E FALLBACK (sem Fear & Greed) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -1241,8 +1241,8 @@
         return { trades, summary };
     }
 
-    // ===== FUNÇÃO PARA GERAR RELATÓRIO =====
-    function generateReport(trades, summary, symbol, days) {
+    // ===== FUNÇÃO PARA GERAR RELATÓRIO (com parâmetros) =====
+    function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
             return;
@@ -1254,8 +1254,6 @@
             return;
         }
 
-        // Métricas
-        const totalTrades = summary.totalTrades;
         const winrate = summary.winrate;
         const totalPnlPct = summary.totalPnlPct;
         const totalPnlUsd = summary.totalPnlUsd;
@@ -1313,6 +1311,7 @@
         const sharpe = stdDev > 0 ? avgPnl / stdDev : 0;
         const calmar = maxDrawdown > 0 ? annualizedReturn / maxDrawdown : 0;
 
+        const p = params || {};
         const reportHTML = `
         <!DOCTYPE html>
         <html>
@@ -1326,6 +1325,10 @@
             .card { background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e9ecef; }
             .card .label { font-size: 12px; color: #6c757d; text-transform: uppercase; }
             .card .value { font-size: 24px; font-weight: 700; }
+            .params-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 10px; background: #f1f2f6; padding: 15px; border-radius: 10px; margin: 15px 0; }
+            .params-grid .item { background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #dfe6e9; }
+            .params-grid .item .label { font-size: 11px; color: #6c757d; }
+            .params-grid .item .value { font-size: 14px; font-weight: 600; }
             .positive { color: #00b894; }
             .negative { color: #e17055; }
             table { width: 100%; border-collapse: collapse; margin: 15px 0; }
@@ -1343,6 +1346,20 @@
             <h1>📊 Relatório de Performance — ${symbol}</h1>
             <p><strong>Período:</strong> Últimos ${days} dias (${new Date(Date.now() - days*24*60*60*1000).toLocaleDateString()} a ${new Date().toLocaleDateString()})</p>
             <p><strong>Trades fechados:</strong> ${closed.length}</p>
+
+            <h2>⚙️ Parâmetros do Backtest</h2>
+            <div class="params-grid">
+                <div class="item"><div class="label">Score mínimo LONG</div><div class="value">${p.scoreMin ?? '--'}</div></div>
+                <div class="item"><div class="label">Score máximo SHORT</div><div class="value">${p.scoreMaxShort ?? '--'}</div></div>
+                <div class="item"><div class="label">ADX mínimo</div><div class="value">${p.adxMin ?? '--'}</div></div>
+                <div class="item"><div class="label">R:R mínimo</div><div class="value">${p.rrMin ?? '--'}</div></div>
+                <div class="item"><div class="label">Retest dist (%)</div><div class="value">${p.retestDistPct ? (p.retestDistPct * 100).toFixed(1) : '--'}</div></div>
+                <div class="item"><div class="label">Dias</div><div class="value">${days}</div></div>
+                <div class="item"><div class="label">BOS</div><div class="value">${p.requireBOS !== undefined ? (p.requireBOS ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">Retest</div><div class="value">${p.requireRetest !== undefined ? (p.requireRetest ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">MTF</div><div class="value">${p.requireMTF !== undefined ? (p.requireMTF ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">EMA Retest</div><div class="value">${p.emaRetest !== undefined ? (p.emaRetest ? '✅' : '❌') : '--'}</div></div>
+            </div>
 
             <div class="grid">
                 <div class="card"><div class="label">Winrate</div><div class="value ${winrate >= 50 ? 'positive' : 'negative'}">${winrate.toFixed(2)}%</div></div>
@@ -1493,14 +1510,15 @@
             rrMin: getParam('rrMin'),
             retestDistPct: getParam('retestDist') / 100,
             emaRetest: getParam('emaRetest'),
-            mtfRequired: getParam('requireMTF'),
-            ignoreBOS: !getParam('requireBOS'),
-            ignoreRetest: !getParam('requireRetest')
+            requireMTF: getParam('requireMTF'),
+            requireBOS: getParam('requireBOS'),
+            requireRetest: getParam('requireRetest')
         };
 
         try {
             const result = await runBacktest(symbol, days, params);
             lastResult = result;
+            lastParams = params;
             const { trades, summary } = result;
 
             if (summary.error) {
@@ -1619,10 +1637,10 @@
         const { trades, summary } = lastResult;
         const symbol = document.getElementById('symbolSelect').value;
         const days = parseInt(document.getElementById('days').value) || 999;
-        generateReport(trades, summary, symbol, days);
+        generateReport(trades, summary, symbol, days, lastParams);
     });
 
-    console.log('Backtest Engine v2.8 carregado – com relatório de performance.');
+    console.log('Backtest Engine v2.9 carregado – relatório inclui parâmetros.');
 </script>
 </body>
 </html>
