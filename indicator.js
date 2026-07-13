@@ -231,7 +231,6 @@ export const calculateConfidenceScore = ({
     
     const sign = direction === 'SHORT' ? -1 : 1;
 
-    // MTF com sinal
     if (mtfAligned) { 
         score += sign * 18; 
         reasons.push('MTF alinhado'); 
@@ -243,7 +242,6 @@ export const calculateConfidenceScore = ({
         reasons.push('MTF desalinhado'); 
     }
     
-    // ADX com sinal
     const adxVal = typeof adx === 'object' ? adx.adx : adx;
     if (adxVal >= 23) { 
         score += sign * 15; 
@@ -256,7 +254,6 @@ export const calculateConfidenceScore = ({
         reasons.push(`ADX ${adxVal.toFixed(1)} lateral`); 
     }
     
-    // Volume com sinal
     if (volumeAnomaly) {
         if (volumeAnomaly.type === 'HIGH') { 
             score += sign * 10; 
@@ -267,13 +264,11 @@ export const calculateConfidenceScore = ({
         }
     }
     
-    // BOS com sinal
     if (smcStructure === 'BOS') { 
         score += sign * 5; 
         reasons.push('BOS confirmado'); 
     }
     
-    // Funding (já direcional)
     const FUNDING_PENALTY = 18;
     const FUNDING_BONUS = 8;
     if (direction === 'LONG') {
@@ -284,16 +279,13 @@ export const calculateConfidenceScore = ({
         else if (fundingRate > 0) { score += FUNDING_BONUS; reasons.push('Funding positivo (SHORT)'); }
     }
     
-    // Divergência (já direcional)
     if (divergence) {
         if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { score += 10; reasons.push('Divergência alta'); }
         else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { score += 10; reasons.push('Divergência baixa'); }
     }
     
-    // Macro Blackout (sempre penaliza)
     if (macroBlackout) { score -= 20; reasons.push('Macro blackout'); }
     
-    // OI (já direcional)
     if (openInterestTrend === 'INCREASING' && direction === 'LONG') { score += 5; reasons.push('OI crescente LONG'); }
     else if (openInterestTrend === 'DECREASING' && direction === 'SHORT') { score += 5; reasons.push('OI decrescente SHORT'); }
     
