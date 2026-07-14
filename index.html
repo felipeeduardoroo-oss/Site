@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.4.1)</title>
+    <title>Backtest Engine — SMC + MTF (v3.4.2)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.1)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.2)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -119,13 +119,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.1:</strong> Base v3.2.0 + melhorias SHORT v3.3.3 + parâmetros ajustáveis (stop, tp, alocação).
+        <strong>v3.4.2:</strong> Correção de bug (MVRV movido para após primaryDirection). Parâmetros ajustáveis.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.1 – PARÂMETROS AJUSTÁVEIS
+    // BACKTEST ENGINE v3.4.2 – CORREÇÃO DE BUG
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (mesmas da v3.2.0) -----
@@ -958,15 +958,6 @@
             state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
             state.macroBlackout = false;
 
-            // Filtro MVRV
-            if (state.mvrv !== null) {
-                if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
-                    blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
-                } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
-                    blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
-                }
-            }
-
             state.mtfConfluence = getMTFAlignmentAtTime(candle.time);
 
             if (state.candles1H.length >= 20) {
@@ -1049,6 +1040,15 @@
 
             // Recalcula a direção com base no score já corrigido
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
+
+            // ===== MVRV MOVIDO PARA CÁ (CORREÇÃO) =====
+            if (state.mvrv !== null) {
+                if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
+                    blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
+                } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
+                    blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
+                }
+            }
 
             // BOS histórico + corpo forte
             const prevClose = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2].close : state.price;
@@ -1922,7 +1922,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.1 – parâmetros ajustáveis para stop, TP e alocação.');
+    console.log('Backtest Engine v3.4.2 – bug corrigido (MVRV movido para após primaryDirection).');
 </script>
 </body>
 </html>
