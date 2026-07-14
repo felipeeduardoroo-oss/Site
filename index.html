@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.5.3)</title>
+    <title>Backtest Engine — SMC + MTF (v3.4.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -48,11 +48,12 @@
         .legend { font-size:.75rem; color:#6b7280; margin-top:8px; padding:12px; background:#0f1117; border-radius:8px; border:1px solid #2a2a44; }
         .io-section { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:8px 0 12px; }
         @media (max-width:768px){ .params-grid{grid-template-columns:1fr 1fr;} .stats-grid{grid-template-columns:1fr 1fr;} }
+        .param-group-title { grid-column:1/-1; font-size:0.9rem; font-weight:600; color:#8b949e; border-bottom:1px solid #2a2a44; padding-bottom:6px; margin-bottom:4px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.3)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.1)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -88,16 +89,37 @@
         </div>
 
         <!-- Novos parâmetros de gestão de risco -->
+        <div class="param-group-title">⚙️ Gestão de Risco</div>
+
         <div><label>Stop LONG (ATR)</label><input type="number" id="stopLong" value="1.5" min="0.1" max="10" step="0.1"></div>
         <div><label>Stop SHORT (ATR)</label><input type="number" id="stopShort" value="2.0" min="0.1" max="10" step="0.1"></div>
+
         <div><label>TP1 LONG (ATR)</label><input type="number" id="tp1Long" value="2.0" min="0.1" max="10" step="0.1"></div>
         <div><label>TP1 SHORT (ATR)</label><input type="number" id="tp1Short" value="1.5" min="0.1" max="10" step="0.1"></div>
+
         <div><label>TP2 (ATR)</label><input type="number" id="tp2" value="4.0" min="0.1" max="10" step="0.1"></div>
-        <div><label>Trailing Buffer LONG</label><input type="number" id="trailingBufferLong" value="1.2" min="0.1" max="10" step="0.1"></div>
-        <div><label>Trailing Buffer SHORT</label><input type="number" id="trailingBufferShort" value="1.5" min="0.1" max="10" step="0.1"></div>
-        <div><label>TP1 %</label><input type="number" id="tp1Percent" value="40" min="1" max="99" step="1"></div>
-        <div><label>TP2 %</label><input type="number" id="tp2Percent" value="40" min="1" max="99" step="1"></div>
-        <div><label>Runner %</label><input type="number" id="runnerPercent" value="20" min="1" max="99" step="1"></div>
+
+        <div><label>Trailing Buffer LONG</label><input type="number" id="trailLong" value="1.2" min="0.1" max="5" step="0.1"></div>
+        <div><label>Trailing Buffer SHORT</label><input type="number" id="trailShort" value="1.5" min="0.1" max="5" step="0.1"></div>
+
+        <div><label>TP1 % (fechado)</label><input type="number" id="tp1Pct" value="40" min="1" max="99" step="1"></div>
+        <div><label>TP2 % (fechado)</label><input type="number" id="tp2Pct" value="40" min="1" max="99" step="1"></div>
+        <div><label>Runner % (mantido)</label><input type="number" id="runnerPct" value="20" min="1" max="99" step="1" readonly style="background:#1a1a2e;color:#6b7280;"></div>
+        <script>
+            // Sincroniza Runner % = 100 - TP1% - TP2%
+            document.getElementById('tp1Pct').addEventListener('input', function() {
+                const tp1 = parseFloat(this.value) || 0;
+                const tp2 = parseFloat(document.getElementById('tp2Pct').value) || 0;
+                const runner = 100 - tp1 - tp2;
+                document.getElementById('runnerPct').value = Math.max(0, runner);
+            });
+            document.getElementById('tp2Pct').addEventListener('input', function() {
+                const tp2 = parseFloat(this.value) || 0;
+                const tp1 = parseFloat(document.getElementById('tp1Pct').value) || 0;
+                const runner = 100 - tp1 - tp2;
+                document.getElementById('runnerPct').value = Math.max(0, runner);
+            });
+        </script>
 
         <div style="grid-column:1/-1;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
             <button class="btn-run" id="runBtn">▶️ Executar Backtest</button>
@@ -127,16 +149,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.5.3:</strong> Correção: tamanho mínimo da posição de 1% para evitar P&L zero.
+        <strong>v3.4.1:</strong> Adicionados parâmetros ajustáveis para Stop, TP, Trailing e percentuais de saída.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.5.3 – CORREÇÃO DE TAMANHO DA POSIÇÃO
+    // BACKTEST ENGINE v3.4.1 – PARÂMETROS DE GESTÃO DE RISCO
     // ============================================================
 
-    // ----- FUNÇÕES DO INDICADOR (base v3.2.0) -----
+    // ----- FUNÇÕES DO INDICADOR (base v3.2.0 + melhorias SHORT 3.3.3) -----
 
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
@@ -272,6 +294,7 @@
         return null;
     };
 
+    // Fractais de Ordem 3
     const updateSwingPoints = (state) => {
         const candles = state.candles1H || [];
         if (candles.length < 7) return;
@@ -294,6 +317,7 @@
         }
     };
 
+    // HTF com persistência (3 velas 4H)
     const detectHTFStructure = (candles4H) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
@@ -695,7 +719,7 @@
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COMPLETO (CORRIGIDO) =====
+    // ===== BACKTEST COMPLETO (com novos parâmetros) =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -710,16 +734,17 @@
             zFundingMax = 1.5,
             zOiMax = 1.5,
             maxHoldHours = 72,
+            // Novos parâmetros de gestão de risco
             stopLong = 1.5,
             stopShort = 2.0,
             tp1Long = 2.0,
             tp1Short = 1.5,
             tp2 = 4.0,
-            trailingBufferLong = 1.2,
-            trailingBufferShort = 1.5,
-            tp1Percent = 40,
-            tp2Percent = 40,
-            runnerPercent = 20
+            trailLong = 1.2,
+            trailShort = 1.5,
+            tp1Pct = 40,
+            tp2Pct = 40,
+            runnerPct = 20
         } = options;
 
         days = Math.min(days, 1000);
@@ -1064,6 +1089,7 @@
             const bosBear = primaryDirection === 'SHORT' && lastSwingLow !== null && prevClose >= lastSwingLow && candle.close < lastSwingLow && isStrongBody;
             state.currentBOS = (bosBull || bosBear) ? 'BOS' : 'NEUTRAL';
 
+            // Filtros adicionais (DI, VWAP, HTF, etc.)
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -1100,7 +1126,7 @@
                 if (!derivCheck.allow) blockReason = derivCheck.reason;
             }
 
-            // ===== GESTÃO DE POSIÇÃO (CORRIGIDA) =====
+            // ===== GESTÃO DE POSIÇÃO (com parâmetros ajustáveis) =====
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
@@ -1116,39 +1142,46 @@
 
                 if (!closed) {
                     if (position.type === 'LONG') {
-                        // TP2
+                        // TP2 (fecha mais 40% do total, ou o que restar para runner)
                         if (high >= position.tp2 && !position.tp2Taken) {
                             position.tp2Taken = true;
-                            const sizeToClose = position.initialSize * (tp2Percent / 100);
+                            // Fração a fechar do restante para atingir TP2% do total
+                            const fractionTP2 = (tp2Pct / 100) / position.sizeRemaining;
+                            const sizeTP2 = position.sizeRemaining * fractionTP2;
                             const partialPnlPct = (position.tp2 - position.entryPrice) / position.entryPrice * 100;
-                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            equity += pnlUsdPartial;
+                            position.partialPnlUsd += (equity * sizeTP2) * (partialPnlPct / 100);
+                            position.partialPnlPct += partialPnlPct * sizeTP2;
+                            equity += (equity * sizeTP2) * (partialPnlPct / 100);
                             if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= sizeToClose;
+                            position.sizeRemaining -= sizeTP2;
+                            // Lock TP1 para trailing
                             position.trailingStop = Math.max(position.trailingStop, position.tp1);
                         }
-                        // Stop Loss
+                        // Stop inicial
                         else if (!position.partialTaken && low <= position.stop) {
                             exitPrice = position.stop; closed = true; reason = 'Stop Loss';
                         }
-                        // TP1
+                        // TP1 (fecha a % definida)
                         else if (high >= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
-                            const sizeToClose = position.initialSize * (tp1Percent / 100);
+                            const fractionTP1 = tp1Pct / 100;
+                            const sizeTP1 = position.sizeRemaining * fractionTP1;
                             const partialPnlPct = (position.tp1 - position.entryPrice) / position.entryPrice * 100;
-                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            equity += pnlUsdPartial;
+                            position.partialPnlUsd = (equity * sizeTP1) * (partialPnlPct / 100);
+                            position.partialPnlPct = partialPnlPct * sizeTP1;
+                            equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= sizeToClose;
-                            position.trailingStop = position.entryPrice + state.atr_1H * trailingBufferLong;
+                            position.sizeRemaining -= sizeTP1;
+                            // Trailing buffer ajustável
+                            const trailMultiplier = trailLong;
+                            position.trailingStop = Math.max(position.entryPrice, position.entryPrice + state.atr_1H * volatilityFactor * trailMultiplier);
                         }
-                        // Runner: trailing stop por estrutura
+                        // Trailing stop (após TP1)
                         else if (position.partialTaken) {
+                            // Ajuste dinâmico com swing lows
                             if (state.swingLows.length > 0) {
                                 const lastSwingLow = state.swingLows[state.swingLows.length - 1];
-                                const newStop = lastSwingLow - state.atr_1H * trailingBufferLong;
+                                const newStop = lastSwingLow - state.atr_1H * volatilityFactor * trailLong;
                                 if (newStop > position.trailingStop) position.trailingStop = newStop;
                             }
                             if (low <= position.trailingStop) {
@@ -1158,13 +1191,14 @@
                     } else { // SHORT
                         if (low <= position.tp2 && !position.tp2Taken) {
                             position.tp2Taken = true;
-                            const sizeToClose = position.initialSize * (tp2Percent / 100);
+                            const fractionTP2 = (tp2Pct / 100) / position.sizeRemaining;
+                            const sizeTP2 = position.sizeRemaining * fractionTP2;
                             const partialPnlPct = (position.entryPrice - position.tp2) / position.entryPrice * 100;
-                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            equity += pnlUsdPartial;
+                            position.partialPnlUsd += (equity * sizeTP2) * (partialPnlPct / 100);
+                            position.partialPnlPct += partialPnlPct * sizeTP2;
+                            equity += (equity * sizeTP2) * (partialPnlPct / 100);
                             if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= sizeToClose;
+                            position.sizeRemaining -= sizeTP2;
                             position.trailingStop = Math.min(position.trailingStop, position.tp1);
                         }
                         else if (!position.partialTaken && high >= position.stop) {
@@ -1172,19 +1206,21 @@
                         }
                         else if (low <= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
-                            const sizeToClose = position.initialSize * (tp1Percent / 100);
+                            const fractionTP1 = tp1Pct / 100;
+                            const sizeTP1 = position.sizeRemaining * fractionTP1;
                             const partialPnlPct = (position.entryPrice - position.tp1) / position.entryPrice * 100;
-                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            equity += pnlUsdPartial;
+                            position.partialPnlUsd = (equity * sizeTP1) * (partialPnlPct / 100);
+                            position.partialPnlPct = partialPnlPct * sizeTP1;
+                            equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= sizeToClose;
-                            position.trailingStop = position.entryPrice - state.atr_1H * trailingBufferShort;
+                            position.sizeRemaining -= sizeTP1;
+                            const trailMultiplier = trailShort;
+                            position.trailingStop = Math.min(position.entryPrice, position.entryPrice - state.atr_1H * volatilityFactor * trailMultiplier);
                         }
                         else if (position.partialTaken) {
                             if (state.swingHighs.length > 0) {
                                 const lastSwingHigh = state.swingHighs[state.swingHighs.length - 1];
-                                const newStop = lastSwingHigh + state.atr_1H * trailingBufferShort;
+                                const newStop = lastSwingHigh + state.atr_1H * volatilityFactor * trailShort;
                                 if (newStop < position.trailingStop || position.trailingStop === 0) position.trailingStop = newStop;
                             }
                             if (high >= position.trailingStop) {
@@ -1195,21 +1231,17 @@
                 }
 
                 if (closed) {
-                    // Cálculo do lucro da parte remanescente
-                    const remSize = isNaN(position.sizeRemaining) ? 0 : position.sizeRemaining;
-                    const invested = equity * remSize;
+                    const invested = equity * position.sizeRemaining;
                     const pnlPct = position.type === 'LONG'
                         ? (exitPrice - position.entryPrice) / position.entryPrice * 100
                         : (position.entryPrice - exitPrice) / position.entryPrice * 100;
                     const pnlUsd = invested * (pnlPct / 100);
                     equity += pnlUsd;
                     if (equity > highWaterMark) highWaterMark = equity;
-
-                    // Soma total de lucro em dólares
+                    
                     const totalPnlUsd = pnlUsd + (position.partialPnlUsd || 0);
-                    // Percentual sobre o capital inicial ($10.000)
-                    const totalPnlPct = (totalPnlUsd / 10000) * 100;
-
+                    const totalPnlPct = (pnlPct * position.sizeRemaining) + (position.partialPnlPct || 0);
+                    
                     trades.push({
                         entryTime: new Date(position.entryTime).toISOString(),
                         exitTime: new Date(candle.time).toISOString(),
@@ -1219,8 +1251,8 @@
                         stopLoss: position.stop,
                         takeProfit1: position.tp1,
                         exitPrice,
-                        pnlPct: isNaN(totalPnlPct) ? '0.00' : totalPnlPct.toFixed(2),
-                        pnlUsd: isNaN(totalPnlUsd) ? '0.00' : totalPnlUsd.toFixed(2),
+                        pnlPct: totalPnlPct.toFixed(2),
+                        pnlUsd: totalPnlUsd.toFixed(2),
                         durationHours: ((candle.time - position.entryTime) / 3600000).toFixed(1),
                         reason
                     });
@@ -1237,6 +1269,7 @@
                 const recentHighs = state.swingHighs.slice(-3);
                 const recentLows = state.swingLows.slice(-3);
 
+                // Retest mais apertado para SHORT
                 const retestDistPctEffective = primaryDirection === 'SHORT' ? retestDistPct * 0.6 : retestDistPct;
 
                 if (primaryDirection === 'LONG') {
@@ -1270,6 +1303,7 @@
                 const retestPassed = retestRequired ? retestConfirmed : true;
                 const structureOk = bosPassed && retestPassed;
 
+                // Volume no breakout
                 const volumeAvg = state.candles1H.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
                 const volumeOk = smcSetup ? state.candles1H[state.candles1H.length - 1].volume >= volumeAvg * 1.3 : true;
                 const closeBreakOk = (primaryDirection === 'LONG' && candle.close > brokenLevel) ||
@@ -1304,24 +1338,41 @@
                 }
 
                 if (structureOk && !blockReason) {
-                    let stop, tp1, tp2;
+                    let stop, tp1, tp2, tp3;
                     const volatilityAtr = state.atr_1H * (1 + state.volatilityFactor * 0.5);
 
+                    // Definir stop e tp usando os multiplicadores
+                    const stopMult = primaryDirection === 'LONG' ? stopLong : stopShort;
+                    const tp1Mult = primaryDirection === 'LONG' ? tp1Long : tp1Short;
+                    const tp2Mult = tp2; // mesmo para ambos
+
                     if (primaryDirection === 'LONG') {
-                        stop = state.price - atr * stopLong;
-                        tp1 = state.price + atr * tp1Long;
-                        tp2 = state.price + atr * tp2;
+                        // Lógica de estrutura para stop (opcional, mas mantemos)
+                        const recentLows = state.swingLows.slice(-3);
+                        const structLevel = (recentLows.length ? Math.min(...recentLows) : state.price * 0.98) - (atr * 0.3);
+                        const atrStop = state.price - atr * stopMult;
+                        stop = (recentLows.length && (state.price - structLevel) <= atr * 2.5) ? structLevel : atrStop;
+                        tp1 = state.price + (volatilityAtr * tp1Mult);
+                        tp2 = state.price + (volatilityAtr * tp2Mult);
+                        tp3 = state.price + (volatilityAtr * 7.0); // tp3 não usado, mantido para rr
                     } else {
-                        stop = state.price + atr * stopShort;
-                        tp1 = state.price - atr * tp1Short;
-                        tp2 = state.price - atr * tp2;
+                        const recentHighs = state.swingHighs.slice(-3);
+                        const structLevel = (recentHighs.length ? Math.max(...recentHighs) : state.price * 1.02) + (atr * 0.3);
+                        const atrStopShort = state.price + atr * stopMult;
+                        stop = (recentHighs.length && (structLevel - state.price) <= atr * 2.5) ? structLevel : atrStopShort;
+                        tp1 = state.price - (volatilityAtr * tp1Mult);
+                        tp2 = state.price - (volatilityAtr * tp2Mult);
+                        tp3 = state.price - (volatilityAtr * 7.0);
                     }
 
+                    // Calcular rr ponderado (tp3 incluso)
                     let rrPonderado;
                     if (primaryDirection === 'LONG') {
-                        rrPonderado = (state.price - stop) > 0 ? ((tp1 - state.price) * 0.5 + (tp2 - state.price) * 0.3) / (state.price - stop) : 0;
+                        const ganhoPonderado = (tp1 - state.price) * 0.5 + (tp2 - state.price) * 0.3 + (tp3 - state.price) * 0.2;
+                        rrPonderado = (state.price - stop) > 0 ? ganhoPonderado / (state.price - stop) : 0;
                     } else {
-                        rrPonderado = (stop - state.price) > 0 ? ((state.price - tp1) * 0.5 + (state.price - tp2) * 0.3) / (stop - state.price) : 0;
+                        const ganhoPonderado = (state.price - tp1) * 0.5 + (state.price - tp2) * 0.3 + (state.price - tp3) * 0.2;
+                        rrPonderado = (stop - state.price) > 0 ? ganhoPonderado / (stop - state.price) : 0;
                     }
 
                     if (rrPonderado < rrMin) continue;
@@ -1329,12 +1380,10 @@
                     const totalTrades = winCount + lossCount;
                     const winRate = totalTrades > 0 ? winCount / totalTrades : 0.5;
                     const kellyPct = KellyPositionSize(winRate, rrPonderado);
-                    // GARANTE RISCO MÍNIMO DE 1%
-                    const riskFraction = Math.max(Math.min(kellyPct, 0.05), 0.01);
+                    const riskFraction = Math.min(kellyPct, 0.05);
                     const stopDistancePct = primaryDirection === 'LONG' ? (state.price - stop) / state.price : (stop - state.price) / state.price;
                     const positionSizeUSD = (riskFraction * equity) / stopDistancePct;
-                    // GARANTE TAMANHO MÍNIMO DE 1% DO CAPITAL
-                    const sizeMultiplier = Math.max(Math.min(positionSizeUSD / equity, 1.0), 0.01);
+                    const sizeMultiplier = Math.min(positionSizeUSD / equity, 1.0);
 
                     position = {
                         type: primaryDirection,
@@ -1345,9 +1394,9 @@
                         trailingStop: stop,
                         partialTaken: false,
                         tp2Taken: false,
-                        initialSize: sizeMultiplier,
                         sizeRemaining: sizeMultiplier,
                         partialPnlUsd: 0,
+                        partialPnlPct: 0,
                         entryTime: candle.time
                     };
                 }
@@ -1358,13 +1407,12 @@
         if (position) {
             const lastCandle = filteredCandles[filteredCandles.length - 1];
             const exitPrice = lastCandle.close;
-            const remSize = isNaN(position.sizeRemaining) ? 0 : position.sizeRemaining;
-            const invested = equity * remSize;
+            const invested = equity * position.sizeRemaining;
             const pnlPct = position.type === 'LONG' ? (exitPrice - position.entryPrice) / position.entryPrice * 100 : (position.entryPrice - exitPrice) / position.entryPrice * 100;
             const pnlUsd = invested * (pnlPct / 100);
             equity += pnlUsd;
             const totalPnlUsd = pnlUsd + (position.partialPnlUsd || 0);
-            const totalPnlPct = (totalPnlUsd / 10000) * 100;
+            const totalPnlPct = (pnlPct * position.sizeRemaining) + (position.partialPnlPct || 0);
             trades.push({
                 entryTime: new Date(position.entryTime).toISOString(),
                 exitTime: new Date(lastCandle.time).toISOString(),
@@ -1374,8 +1422,8 @@
                 stopLoss: position.stop,
                 takeProfit1: position.tp1,
                 exitPrice,
-                pnlPct: isNaN(totalPnlPct) ? '0.00' : totalPnlPct.toFixed(2),
-                pnlUsd: isNaN(totalPnlUsd) ? '0.00' : totalPnlUsd.toFixed(2),
+                pnlPct: totalPnlPct.toFixed(2),
+                pnlUsd: totalPnlUsd.toFixed(2),
                 durationHours: ((lastCandle.time - position.entryTime) / 3600000).toFixed(1),
                 reason: 'Fechamento forçado'
             });
@@ -1429,7 +1477,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO (com tratamento de NaN) =====
+    // ===== GERAR RELATÓRIO (mesmo) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1442,12 +1490,12 @@
             return;
         }
 
-        const winrate = summary.winrate || 0;
-        const totalPnlPct = isNaN(summary.totalPnlPct) ? 0 : summary.totalPnlPct;
-        const totalPnlUsd = isNaN(summary.totalPnlUsd) ? 0 : summary.totalPnlUsd;
-        const profitFactor = isNaN(summary.profitFactor) ? 0 : summary.profitFactor;
-        const maxDrawdown = isNaN(summary.maxDrawdown) ? 0 : summary.maxDrawdown;
-        const annualizedReturn = isNaN(summary.annualizedReturn) ? 0 : summary.annualizedReturn;
+        const winrate = summary.winrate;
+        const totalPnlPct = summary.totalPnlPct;
+        const totalPnlUsd = summary.totalPnlUsd;
+        const profitFactor = summary.profitFactor;
+        const maxDrawdown = summary.maxDrawdown;
+        const annualizedReturn = summary.annualizedReturn;
 
         const longs = closed.filter(t => t.direction === 'LONG');
         const shorts = closed.filter(t => t.direction === 'SHORT');
@@ -1481,7 +1529,7 @@
         closed.forEach(t => {
             const month = new Date(t.entryTime).toISOString().slice(0, 7);
             if (!monthly[month]) monthly[month] = { wins: 0, losses: 0, pnl: 0, count: 0 };
-            const pnl = parseFloat(t.pnlPct) || 0;
+            const pnl = parseFloat(t.pnlPct);
             monthly[month].pnl += pnl;
             monthly[month].count++;
             if (pnl > 0) monthly[month].wins++;
@@ -1505,7 +1553,7 @@
             .map(([filter, count]) => ({ filter, count, pct: (count / totalBlocks * 100) }))
             .sort((a, b) => b.count - a.count);
 
-        const pnlValues = closed.map(t => parseFloat(t.pnlPct) || 0);
+        const pnlValues = closed.map(t => parseFloat(t.pnlPct));
         const avgPnl = pnlValues.reduce((a, b) => a + b, 0) / pnlValues.length;
         const variance = pnlValues.reduce((s, v) => s + (v - avgPnl) ** 2, 0) / pnlValues.length;
         const stdDev = Math.sqrt(variance);
@@ -1562,16 +1610,18 @@
                 <div class="item"><div class="label">Retest</div><div class="value">${p.requireRetest !== undefined ? (p.requireRetest ? '✅' : '❌') : '--'}</div></div>
                 <div class="item"><div class="label">MTF</div><div class="value">${p.requireMTF !== undefined ? (p.requireMTF ? '✅' : '❌') : '--'}</div></div>
                 <div class="item"><div class="label">EMA Retest</div><div class="value">${p.emaRetest !== undefined ? (p.emaRetest ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">Z Funding Max</div><div class="value">${p.zFundingMax ?? '--'}</div></div>
+                <div class="item"><div class="label">Z OI Max</div><div class="value">${p.zOiMax ?? '--'}</div></div>
                 <div class="item"><div class="label">Stop LONG</div><div class="value">${p.stopLong ?? '--'}</div></div>
                 <div class="item"><div class="label">Stop SHORT</div><div class="value">${p.stopShort ?? '--'}</div></div>
                 <div class="item"><div class="label">TP1 LONG</div><div class="value">${p.tp1Long ?? '--'}</div></div>
                 <div class="item"><div class="label">TP1 SHORT</div><div class="value">${p.tp1Short ?? '--'}</div></div>
                 <div class="item"><div class="label">TP2</div><div class="value">${p.tp2 ?? '--'}</div></div>
-                <div class="item"><div class="label">Trailing Buffer LONG</div><div class="value">${p.trailingBufferLong ?? '--'}</div></div>
-                <div class="item"><div class="label">Trailing Buffer SHORT</div><div class="value">${p.trailingBufferShort ?? '--'}</div></div>
-                <div class="item"><div class="label">TP1 %</div><div class="value">${p.tp1Percent ?? '--'}%</div></div>
-                <div class="item"><div class="label">TP2 %</div><div class="value">${p.tp2Percent ?? '--'}%</div></div>
-                <div class="item"><div class="label">Runner %</div><div class="value">${p.runnerPercent ?? '--'}%</div></div>
+                <div class="item"><div class="label">Trail LONG</div><div class="value">${p.trailLong ?? '--'}</div></div>
+                <div class="item"><div class="label">Trail SHORT</div><div class="value">${p.trailShort ?? '--'}</div></div>
+                <div class="item"><div class="label">TP1 %</div><div class="value">${p.tp1Pct ?? '--'}%</div></div>
+                <div class="item"><div class="label">TP2 %</div><div class="value">${p.tp2Pct ?? '--'}%</div></div>
+                <div class="item"><div class="label">Runner %</div><div class="value">${p.runnerPct ?? '--'}%</div></div>
             </div>
 
             <div class="grid">
@@ -1740,11 +1790,11 @@
             tp1Long: getParam('tp1Long'),
             tp1Short: getParam('tp1Short'),
             tp2: getParam('tp2'),
-            trailingBufferLong: getParam('trailingBufferLong'),
-            trailingBufferShort: getParam('trailingBufferShort'),
-            tp1Percent: getParam('tp1Percent'),
-            tp2Percent: getParam('tp2Percent'),
-            runnerPercent: getParam('runnerPercent')
+            trailLong: getParam('trailLong'),
+            trailShort: getParam('trailShort'),
+            tp1Pct: getParam('tp1Pct'),
+            tp2Pct: getParam('tp2Pct'),
+            runnerPct: 100 - getParam('tp1Pct') - getParam('tp2Pct')
         };
 
         try {
@@ -1910,7 +1960,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.5.3 – tamanho mínimo da posição aplicado.');
+    console.log('Backtest Engine v3.4.1 – parâmetros ajustáveis de gestão de risco adicionados.');
 </script>
 </body>
 </html>
