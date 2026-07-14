@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.4.1)</title>
+    <title>Backtest Engine — SMC + MTF (v3.4.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.1)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.0)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -86,19 +86,6 @@
             <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="requireMTF" checked> MTF</label>
             <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="emaRetest"> EMA Retest</label>
         </div>
-
-        <!-- NOVOS PARÂMETROS DE GESTÃO -->
-        <div><label>Stop LONG (ATR)</label><input type="number" id="stopLong" value="1.5" min="0.5" max="5" step="0.1"></div>
-        <div><label>Stop SHORT (ATR)</label><input type="number" id="stopShort" value="2.0" min="0.5" max="5" step="0.1"></div>
-        <div><label>TP1 LONG (ATR)</label><input type="number" id="tp1Long" value="2.0" min="0.5" max="10" step="0.1"></div>
-        <div><label>TP1 SHORT (ATR)</label><input type="number" id="tp1Short" value="1.5" min="0.5" max="10" step="0.1"></div>
-        <div><label>TP2 (ATR)</label><input type="number" id="tp2Dist" value="4.0" min="1.0" max="15" step="0.1"></div>
-        <div><label>Trailing LONG (ATR)</label><input type="number" id="trailLong" value="1.2" min="0.5" max="5" step="0.1"></div>
-        <div><label>Trailing SHORT (ATR)</label><input type="number" id="trailShort" value="1.5" min="0.5" max="5" step="0.1"></div>
-        <div><label>TP1 % (fechar)</label><input type="number" id="tp1Pct" value="40" min="5" max="90" step="5"></div>
-        <div><label>TP2 % (fechar)</label><input type="number" id="tp2Pct" value="40" min="5" max="90" step="5"></div>
-        <div><label>Runner % (manter)</label><input type="number" id="runnerPct" value="20" min="5" max="90" step="5"></div>
-
         <div style="grid-column:1/-1;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
             <button class="btn-run" id="runBtn">▶️ Executar Backtest</button>
             <span id="status" class="status-bar">Aguardando execução...</span>
@@ -127,16 +114,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.1:</strong> Parâmetros ajustáveis de stop, TP, trailing e percentuais de saída.
+        <strong>v3.4.0:</strong> Base v3.2.0 com duas melhorias para SHORT da v3.3.3: HTF com persistência (3 velas 4H) e retest 40% mais apertado para SHORTs.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.1 – PARÂMETROS AJUSTÁVEIS
+    // BACKTEST ENGINE v3.4.0 – FUSÃO 3.2.0 + MELHORIAS SHORT 3.3.3
     // ============================================================
 
-    // ----- FUNÇÕES DO INDICADOR (base v3.4.0 - inalteradas) -----
+    // ----- FUNÇÕES DO INDICADOR (base v3.2.0) -----
 
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
@@ -272,7 +259,7 @@
         return null;
     };
 
-    // Fractais de Ordem 3
+    // [MELHORIA 1] Fractais de Ordem 3 (da v3.2.0)
     const updateSwingPoints = (state) => {
         const candles = state.candles1H || [];
         if (candles.length < 7) return;
@@ -295,7 +282,7 @@
         }
     };
 
-    // HTF com persistência (3 velas 4H)
+    // [MELHORIA 2] HTF com persistência (3 velas 4H) – v3.3.3
     const detectHTFStructure = (candles4H) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
@@ -316,6 +303,7 @@
 
     const checkLateralMarket = (adxValue, threshold = 20) => adxValue < threshold;
 
+    // Funding Hard Limits (v3.2.0)
     const checkDerivativesFilter = (fundingRate, oiDelta) => {
         if (fundingRate > 0.0020) return { allow: false, reason: 'Funding extremamente positivo (>0.2%)' };
         if (fundingRate < -0.0020) return { allow: false, reason: 'Funding extremamente negativo (<-0.2%)' };
@@ -341,6 +329,7 @@
         return Math.min(Math.max(k, 0.01), 0.1);
     };
 
+    // computeScore (v3.2.0 – com RSI corrigido)
     const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
         const data = assetsData[symbol];
         if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
@@ -350,11 +339,14 @@
         const adxValue = typeof adxRaw === 'object' ? (adxRaw?.adx || 0) : (adxRaw || 0);
         const rsi = data.rsi_1H || 50;
         let score = base;
+        // MTF motor principal (peso 15)
         if (mtfScore > 0) score += 15;
         else if (mtfScore < 0) score -= 15;
+        // ADX reforça (peso 10)
         if (adxValue > adxThreshold) {
             score += (mtfScore > 0 ? 10 : (mtfScore < 0 ? -10 : 0));
         }
+        // RSI como filtro de exaustão
         if (rsi > 75) score -= 15;
         if (rsi < 25) score += 15;
         let clamped = Math.max(0, Math.min(100, score));
@@ -372,6 +364,7 @@
         };
     };
 
+    // calculateConfidenceScore (v3.2.0 – sem alterações)
     const calculateConfidenceScore = ({ 
         mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
         openInterestTrend, divergence, macroBlackout, smcStructure, 
@@ -380,18 +373,45 @@
         let score = 50;
         const reasons = [];
         const sign = direction === 'SHORT' ? -1 : 1;
-        if (mtfAligned) { score += sign * 18; reasons.push('MTF alinhado'); }
-        else if (mtfAlignedParcial) { score += sign * 8; reasons.push('MTF parcialmente alinhado'); }
-        else { score -= sign * 12; reasons.push('MTF desalinhado'); }
-        const adxVal = typeof adx === 'object' ? adx.adx : adx;
-        if (adxVal >= 25) { score += sign * 15; reasons.push(`ADX ${adxVal.toFixed(1)} forte`); }
-        else if (adxVal >= 20) { score += sign * 7; reasons.push(`ADX ${adxVal.toFixed(1)} formando`); }
-        else { score -= sign * 15; reasons.push(`ADX ${adxVal.toFixed(1)} lateral/fraco`); }
-        if (volumeAnomaly) {
-            if (volumeAnomaly.type === 'HIGH') { score += sign * 10; reasons.push('Volume alto'); }
-            else if (volumeAnomaly.type === 'LOW') { score -= sign * 5; reasons.push('Volume baixo'); }
+
+        if (mtfAligned) { 
+            score += sign * 18; 
+            reasons.push('MTF alinhado'); 
+        } else if (mtfAlignedParcial) { 
+            score += sign * 8; 
+            reasons.push('MTF parcialmente alinhado'); 
+        } else { 
+            score -= sign * 12; 
+            reasons.push('MTF desalinhado'); 
         }
-        if (smcStructure === 'BOS') { score += sign * 5; reasons.push('BOS confirmado'); }
+        
+        const adxVal = typeof adx === 'object' ? adx.adx : adx;
+        if (adxVal >= 25) { 
+            score += sign * 15; 
+            reasons.push(`ADX ${adxVal.toFixed(1)} forte`); 
+        } else if (adxVal >= 20) { 
+            score += sign * 7; 
+            reasons.push(`ADX ${adxVal.toFixed(1)} formando`); 
+        } else { 
+            score -= sign * 15; 
+            reasons.push(`ADX ${adxVal.toFixed(1)} lateral/fraco`); 
+        }
+        
+        if (volumeAnomaly) {
+            if (volumeAnomaly.type === 'HIGH') { 
+                score += sign * 10; 
+                reasons.push('Volume alto'); 
+            } else if (volumeAnomaly.type === 'LOW') { 
+                score -= sign * 5; 
+                reasons.push('Volume baixo'); 
+            }
+        }
+        
+        if (smcStructure === 'BOS') { 
+            score += sign * 5; 
+            reasons.push('BOS confirmado'); 
+        }
+        
         const FUNDING_PENALTY = 18;
         const FUNDING_BONUS = 8;
         if (direction === 'LONG') {
@@ -401,13 +421,22 @@
             if (fundingRate < -0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding negativo (SHORT)'); }
             else if (fundingRate > 0) { score += FUNDING_BONUS; reasons.push('Funding positivo (SHORT)'); }
         }
+        
         if (divergence) {
-            if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { score += 15; reasons.push('Divergência RSI altista confirmada'); }
-            else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { score += 15; reasons.push('Divergência RSI baixista confirmada'); }
+            if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { 
+                score += 15; 
+                reasons.push('Divergência RSI altista confirmada'); 
+            } else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { 
+                score += 15; 
+                reasons.push('Divergência RSI baixista confirmada'); 
+            }
         }
+        
         if (macroBlackout) { score -= 20; reasons.push('Macro blackout'); }
+        
         if (openInterestTrend === 'INCREASING' && direction === 'LONG') { score += 5; reasons.push('OI crescente LONG'); }
         else if (openInterestTrend === 'DECREASING' && direction === 'SHORT') { score += 5; reasons.push('OI decrescente SHORT'); }
+        
         score = Math.min(100, Math.max(0, score));
         let level = 'MEDIUM';
         if (score >= 75) level = 'VERY_HIGH';
@@ -415,13 +444,14 @@
         else if (score >= 40) level = 'MEDIUM';
         else if (score >= 20) level = 'LOW';
         else level = 'VERY_LOW';
+        
         let finalDirection = 'NEUTRO';
         if (score >= scoreMinLong) finalDirection = 'LONG';
         else if (score <= scoreMaxShort) finalDirection = 'SHORT';
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ----- FIM DAS FUNÇÕES DO INDICADOR (inalteradas) -----
+    // ----- FIM DAS FUNÇÕES DO INDICADOR -----
 
     // ----- VARIÁVEIS GLOBAIS -----
     let cachedData = {
@@ -569,7 +599,9 @@
         const endTime = now;
         const startDateStr = new Date(startTime).toISOString().slice(0, 10);
         const endDateStr = new Date(endTime).toISOString().slice(0, 10);
+
         console.log(`[FetchRaw] Buscando ${days} dias para ${symbol}...`);
+
         const [candles1h, candles4h, funding, oi, mvrv] = await Promise.all([
             fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
             fetchHistoricalCandlesPaged(symbol, '4h', startTime, endTime, 1000),
@@ -577,6 +609,7 @@
             fetchHistoricalOI(symbol, startTime, endTime),
             fetchHistoricalMVRV(startDateStr, endDateStr)
         ]);
+
         return { candles1h, candles4h, funding, oi, mvrv };
     }
 
@@ -671,27 +704,8 @@
             ignoreRetest = false,
             zFundingMax = 1.5,
             zOiMax = 1.5,
-            maxHoldHours = 72,
-            // NOVOS PARÂMETROS
-            stopLong = 1.5,
-            stopShort = 2.0,
-            tp1Long = 2.0,
-            tp1Short = 1.5,
-            tp2Dist = 4.0,
-            trailLong = 1.2,
-            trailShort = 1.5,
-            tp1Pct = 0.4,
-            tp2Pct = 0.4,
-            runnerPct = 0.2
+            maxHoldHours = 72
         } = options;
-
-        // Validação rápida dos percentuais
-        const totalPct = tp1Pct + tp2Pct + runnerPct;
-        if (Math.abs(totalPct - 1.0) > 0.01) {
-            console.warn(`Percentuais somam ${(totalPct*100).toFixed(1)}%, ajustando para 100%`);
-            // Normaliza para garantir que some 100%
-            // Não vamos alterar os valores, apenas alertamos, mas a lógica de TP2 vai usar frações relativas.
-        }
 
         days = Math.min(days, 1000);
         const now = Date.now();
@@ -700,7 +714,7 @@
         const startDateStr = new Date(startTime).toISOString().slice(0, 10);
         const endDateStr = new Date(endTime).toISOString().slice(0, 10);
 
-        console.log(`[Backtest] ${symbol} - ${days} dias`);
+        console.log(`[Backtest] ${symbol} - ${days} dias (${new Date(startTime).toISOString()} a ${new Date(endTime).toISOString()})`);
 
         let candles1h = cachedData.candles1h;
         let candles4h = cachedData.candles4h;
@@ -870,7 +884,7 @@
             }
         };
 
-        // ----- MTF com Slope -----
+        // ----- MTF com Slope (v3.2.0) -----
         const getMTFAlignmentAtTime = (currentTime) => {
             const relevant1H = state.candles1H.filter(c => c.time <= currentTime).slice(-50);
             const relevant4H = state.candles4H.filter(c => c.time <= currentTime).slice(-50);
@@ -885,10 +899,12 @@
                 const ema50 = ema50Arr.slice(-1)[0];
                 const ema20Prev = ema20Arr.slice(-4, -3)[0] || ema20;
                 const last = closes[closes.length - 1];
+                
                 const isBull = ema20 > ema50 && last > ema20;
                 const isBear = ema20 < ema50 && last < ema20;
                 const slopeUp = ema20 > ema20Prev;
                 const slopeDown = ema20 < ema20Prev;
+            
                 if (isBull && slopeUp) return 'BULL';
                 if (isBear && slopeDown) return 'BEAR';
                 return 'NEUTRO';
@@ -931,6 +947,7 @@
             state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
             state.macroBlackout = false;
 
+            // Filtro MVRV (v3.2.0)
             if (state.mvrv !== null) {
                 if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
                     blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
@@ -1019,9 +1036,10 @@
             let direction = scoreData.direction;
             let blockReason = scoreData.blockReason;
 
+            // Recalcula a direção com base no score já corrigido
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // BOS histórico + corpo forte
+            // BOS histórico + corpo forte (v3.2.0)
             const prevClose = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2].close : state.price;
             const lastSwingHigh = state.swingHighs.length > 0 ? state.swingHighs[state.swingHighs.length - 1] : null;
             const lastSwingLow = state.swingLows.length > 0 ? state.swingLows[state.swingLows.length - 1] : null;
@@ -1033,6 +1051,7 @@
             const bosBear = primaryDirection === 'SHORT' && lastSwingLow !== null && prevClose >= lastSwingLow && candle.close < lastSwingLow && isStrongBody;
             state.currentBOS = (bosBull || bosBear) ? 'BOS' : 'NEUTRAL';
 
+            // Filtros adicionais (DI, VWAP, HTF, etc.)
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -1048,6 +1067,7 @@
             if (adxValNow < adxMin && !blockReason) blockReason = `ADX < ${adxMin}`;
             if (state.macroBlackout && !blockReason) blockReason = 'Macro blackout';
 
+            // DI filter (v3.2.0)
             if (primaryDirection === 'LONG' && state.adx.plusDI < state.adx.minusDI) {
                 blockReason = 'DI- > DI+ (Força Bearish)';
             } else if (primaryDirection === 'SHORT' && state.adx.minusDI < state.adx.plusDI) {
@@ -1069,7 +1089,7 @@
                 if (!derivCheck.allow) blockReason = derivCheck.reason;
             }
 
-            // ===== GESTÃO DE POSIÇÃO (com parâmetros ajustáveis) =====
+            // ===== GESTÃO DE POSIÇÃO (v3.2.0) =====
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
@@ -1085,90 +1105,45 @@
 
                 if (!closed) {
                     if (position.type === 'LONG') {
-                        // TP2 (fecha mais tp2Pct do total, deixando runnerPct)
-                        if (high >= position.tp2 && !position.tp2Taken) {
-                            position.tp2Taken = true;
-                            const closeFractionTP2 = tp2Pct / (tp2Pct + runnerPct);
-                            const closeSize = position.sizeRemaining * closeFractionTP2;
-                            const partialPnlPct = (position.tp2 - position.entryPrice) / position.entryPrice * 100;
-                            position.partialPnlUsd += (equity * closeSize) * (partialPnlPct / 100);
-                            position.partialPnlPct += partialPnlPct * closeSize;
-                            equity += (equity * closeSize) * (partialPnlPct / 100);
-                            if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= closeSize;
-                            position.trailingStop = Math.max(position.trailingStop, position.tp1);
-                        }
-                        else if (!position.partialTaken && low <= position.stop) {
+                        if (high >= position.tp2) {
+                            exitPrice = position.tp2; closed = true; reason = 'TP2';
+                        } else if (!position.partialTaken && low <= position.stop) {
                             exitPrice = position.stop; closed = true; reason = 'Stop Loss';
-                        }
-                        else if (high >= position.tp1 && !position.partialTaken) {
+                        } else if (high >= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
-                            const closeSize = position.sizeRemaining * tp1Pct;
+                            const halfSize = position.sizeRemaining * 0.5;
                             const partialPnlPct = (position.tp1 - position.entryPrice) / position.entryPrice * 100;
-                            position.partialPnlUsd = (equity * closeSize) * (partialPnlPct / 100);
-                            position.partialPnlPct = partialPnlPct * closeSize;
+                            position.partialPnlUsd = (equity * halfSize) * (partialPnlPct / 100);
+                            position.partialPnlPct = partialPnlPct * halfSize;
                             equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= closeSize;
-                            // Usa o buffer configurável para o trailing inicial
-                            position.trailingStop = position.entryPrice + state.atr_1H * trailLong;
-                        }
-                        else if (position.partialTaken) {
-                            // Trailing híbrido com buffer ajustável
-                            const profitDistance = state.price - position.entryPrice;
-                            const minRunDistance = state.atr_1H * 1.5; // mantido como referência fixa para ativação
-                            if (profitDistance > minRunDistance && state.swingLows.length > 0) {
-                                const lastSwingLow = state.swingLows[state.swingLows.length - 1];
-                                const newStop = lastSwingLow - state.atr_1H * volatilityFactor * trailLong;
-                                if (newStop > position.trailingStop) position.trailingStop = newStop;
-                            }
-                            if (low <= position.trailingStop) {
-                                exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop';
-                            }
+                            position.sizeRemaining -= halfSize;
+                            position.trailingStop = Math.max(position.entryPrice, position.entryPrice + state.atr_1H * volatilityFactor * 1.2);
+                        } else if (position.partialTaken && low <= position.trailingStop) {
+                            exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop';
                         }
                     } else { // SHORT
-                        if (low <= position.tp2 && !position.tp2Taken) {
-                            position.tp2Taken = true;
-                            const closeFractionTP2 = tp2Pct / (tp2Pct + runnerPct);
-                            const closeSize = position.sizeRemaining * closeFractionTP2;
-                            const partialPnlPct = (position.entryPrice - position.tp2) / position.entryPrice * 100;
-                            position.partialPnlUsd += (equity * closeSize) * (partialPnlPct / 100);
-                            position.partialPnlPct += partialPnlPct * closeSize;
-                            equity += (equity * closeSize) * (partialPnlPct / 100);
-                            if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= closeSize;
-                            position.trailingStop = Math.min(position.trailingStop, position.tp1);
-                        }
-                        else if (!position.partialTaken && high >= position.stop) {
+                        if (low <= position.tp2) {
+                            exitPrice = position.tp2; closed = true; reason = 'TP2';
+                        } else if (!position.partialTaken && high >= position.stop) {
                             exitPrice = position.stop; closed = true; reason = 'Stop Loss';
-                        }
-                        else if (low <= position.tp1 && !position.partialTaken) {
+                        } else if (low <= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
-                            const closeSize = position.sizeRemaining * tp1Pct;
+                            const halfSize = position.sizeRemaining * 0.5;
                             const partialPnlPct = (position.entryPrice - position.tp1) / position.entryPrice * 100;
-                            position.partialPnlUsd = (equity * closeSize) * (partialPnlPct / 100);
-                            position.partialPnlPct = partialPnlPct * closeSize;
+                            position.partialPnlUsd = (equity * halfSize) * (partialPnlPct / 100);
+                            position.partialPnlPct = partialPnlPct * halfSize;
                             equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
-                            position.sizeRemaining -= closeSize;
-                            position.trailingStop = position.entryPrice - state.atr_1H * trailShort;
-                        }
-                        else if (position.partialTaken) {
-                            const profitDistance = position.entryPrice - state.price;
-                            const minRunDistance = state.atr_1H * 1.5;
-                            if (profitDistance > minRunDistance && state.swingHighs.length > 0) {
-                                const lastSwingHigh = state.swingHighs[state.swingHighs.length - 1];
-                                const newStop = lastSwingHigh + state.atr_1H * volatilityFactor * trailShort;
-                                if (newStop < position.trailingStop || position.trailingStop === 0) position.trailingStop = newStop;
-                            }
-                            if (high >= position.trailingStop) {
-                                exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop';
-                            }
+                            position.sizeRemaining -= halfSize;
+                            position.trailingStop = Math.min(position.entryPrice, position.entryPrice - state.atr_1H * volatilityFactor * 1.2);
+                        } else if (position.partialTaken && high >= position.trailingStop) {
+                            exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop';
                         }
                     }
                 }
 
-                // Ajuste dinâmico do trailing stop (usando os buffers configuráveis)
+                // Ajuste dinâmico do trailing stop (v3.2.0)
                 if (!closed && position.partialTaken) {
                     const bodyMgmt = Math.abs(candle.close - candle.open);
                     const rangeMgmt = candle.high - candle.low;
@@ -1176,11 +1151,11 @@
                     if (!isDojiMgmt) {
                         if (position.type === 'LONG' && state.swingLows.length > 0) {
                             const newLow = Math.min(...state.swingLows);
-                            const newStop = newLow - state.atr_1H * volatilityFactor * trailLong;
+                            const newStop = newLow - state.atr_1H * volatilityFactor * 1.2;
                             if (newStop > position.trailingStop) position.trailingStop = newStop;
                         } else if (position.type === 'SHORT' && state.swingHighs.length > 0) {
                             const newHigh = Math.max(...state.swingHighs);
-                            const newStop = newHigh + state.atr_1H * volatilityFactor * trailShort;
+                            const newStop = newHigh + state.atr_1H * volatilityFactor * 1.2;
                             if (newStop < position.trailingStop) position.trailingStop = newStop;
                         }
                     }
@@ -1218,14 +1193,14 @@
                 }
             }
 
-            // ----- ENTRADA (com parâmetros ajustáveis) -----
+            // ----- ENTRADA (sem push de abertura) -----
             if (!position && !blockReason && primaryDirection) {
                 const atr = state.atr_1H || (state.price * 0.02);
                 let smcSetup = false, retestConfirmed = false, brokenLevel = null;
                 const recentHighs = state.swingHighs.slice(-3);
                 const recentLows = state.swingLows.slice(-3);
 
-                // Retest mais apertado para SHORT
+                // [MELHORIA 4] Retest mais apertado para SHORT (v3.3.3)
                 const retestDistPctEffective = primaryDirection === 'SHORT' ? retestDistPct * 0.6 : retestDistPct;
 
                 if (primaryDirection === 'LONG') {
@@ -1259,6 +1234,7 @@
                 const retestPassed = retestRequired ? retestConfirmed : true;
                 const structureOk = bosPassed && retestPassed;
 
+                // Volume no breakout (1.3x)
                 const volumeAvg = state.candles1H.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
                 const volumeOk = smcSetup ? state.candles1H[state.candles1H.length - 1].volume >= volumeAvg * 1.3 : true;
                 const closeBreakOk = (primaryDirection === 'LONG' && candle.close > brokenLevel) ||
@@ -1296,25 +1272,21 @@
                     let stop, tp1, tp2, tp3;
                     const volatilityAtr = state.atr_1H * (1 + state.volatilityFactor * 0.5);
 
-                    // Define multiplicadores com base na direção (parâmetros ajustáveis)
-                    const stopMultiplier = primaryDirection === 'LONG' ? stopLong : stopShort;
-                    const tp1Multiplier = primaryDirection === 'LONG' ? tp1Long : tp1Short;
-
                     if (primaryDirection === 'LONG') {
                         const recentLows = state.swingLows.slice(-3);
                         const structLevel = (recentLows.length ? Math.min(...recentLows) : state.price * 0.98) - (atr * 0.3);
-                        const atrStop = state.price - atr * stopMultiplier;
+                        const atrStop = state.price - atr * 1.5;
                         stop = (recentLows.length && (state.price - structLevel) <= atr * 2.5) ? structLevel : atrStop;
-                        tp1 = state.price + (volatilityAtr * tp1Multiplier);
-                        tp2 = state.price + (volatilityAtr * tp2Dist);
-                        tp3 = state.price + (volatilityAtr * 7.0); // TP3 não utilizado no fechamento parcial, mantido para referência
+                        tp1 = state.price + (volatilityAtr * 2.0);
+                        tp2 = state.price + (volatilityAtr * 4.0);
+                        tp3 = state.price + (volatilityAtr * 7.0);
                     } else {
                         const recentHighs = state.swingHighs.slice(-3);
                         const structLevel = (recentHighs.length ? Math.max(...recentHighs) : state.price * 1.02) + (atr * 0.3);
-                        const atrStopShort = state.price + atr * stopMultiplier;
+                        const atrStopShort = state.price + atr * 1.5;
                         stop = (recentHighs.length && (structLevel - state.price) <= atr * 2.5) ? structLevel : atrStopShort;
-                        tp1 = state.price - (volatilityAtr * tp1Multiplier);
-                        tp2 = state.price - (volatilityAtr * tp2Dist);
+                        tp1 = state.price - (volatilityAtr * 2.0);
+                        tp2 = state.price - (volatilityAtr * 4.0);
                         tp3 = state.price - (volatilityAtr * 7.0);
                     }
 
@@ -1345,12 +1317,12 @@
                         tp2: tp2,
                         trailingStop: stop,
                         partialTaken: false,
-                        tp2Taken: false,
                         sizeRemaining: sizeMultiplier,
                         partialPnlUsd: 0,
                         partialPnlPct: 0,
                         entryTime: candle.time
                     };
+                    // NENHUM trades.push() AQUI
                 }
             }
         }
@@ -1558,16 +1530,12 @@
                 <div class="item"><div class="label">Retest dist (ATR)</div><div class="value">${p.retestDistPct ?? '--'}</div></div>
                 <div class="item"><div class="label">Dias</div><div class="value">${days}</div></div>
                 <div class="item"><div class="label">Tempo máx. aberto (h)</div><div class="value">${p.maxHoldHours ?? '--'}</div></div>
-                <div class="item"><div class="label">Stop LONG</div><div class="value">${p.stopLong ?? '--'}</div></div>
-                <div class="item"><div class="label">Stop SHORT</div><div class="value">${p.stopShort ?? '--'}</div></div>
-                <div class="item"><div class="label">TP1 LONG</div><div class="value">${p.tp1Long ?? '--'}</div></div>
-                <div class="item"><div class="label">TP1 SHORT</div><div class="value">${p.tp1Short ?? '--'}</div></div>
-                <div class="item"><div class="label">TP2 (ATR)</div><div class="value">${p.tp2Dist ?? '--'}</div></div>
-                <div class="item"><div class="label">Trail LONG</div><div class="value">${p.trailLong ?? '--'}</div></div>
-                <div class="item"><div class="label">Trail SHORT</div><div class="value">${p.trailShort ?? '--'}</div></div>
-                <div class="item"><div class="label">TP1 %</div><div class="value">${p.tp1Pct !== undefined ? (p.tp1Pct*100).toFixed(0)+'%' : '--'}</div></div>
-                <div class="item"><div class="label">TP2 %</div><div class="value">${p.tp2Pct !== undefined ? (p.tp2Pct*100).toFixed(0)+'%' : '--'}</div></div>
-                <div class="item"><div class="label">Runner %</div><div class="value">${p.runnerPct !== undefined ? (p.runnerPct*100).toFixed(0)+'%' : '--'}</div></div>
+                <div class="item"><div class="label">BOS</div><div class="value">${p.requireBOS !== undefined ? (p.requireBOS ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">Retest</div><div class="value">${p.requireRetest !== undefined ? (p.requireRetest ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">MTF</div><div class="value">${p.requireMTF !== undefined ? (p.requireMTF ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">EMA Retest</div><div class="value">${p.emaRetest !== undefined ? (p.emaRetest ? '✅' : '❌') : '--'}</div></div>
+                <div class="item"><div class="label">Z Funding Max</div><div class="value">${p.zFundingMax ?? '--'}</div></div>
+                <div class="item"><div class="label">Z OI Max</div><div class="value">${p.zOiMax ?? '--'}</div></div>
             </div>
 
             <div class="grid">
@@ -1730,18 +1698,7 @@
             requireRetest: getParam('requireRetest'),
             zFundingMax: 1.5,
             zOiMax: 1.5,
-            maxHoldHours: getParam('maxHoldHours'),
-            // Novos parâmetros
-            stopLong: getParam('stopLong'),
-            stopShort: getParam('stopShort'),
-            tp1Long: getParam('tp1Long'),
-            tp1Short: getParam('tp1Short'),
-            tp2Dist: getParam('tp2Dist'),
-            trailLong: getParam('trailLong'),
-            trailShort: getParam('trailShort'),
-            tp1Pct: getParam('tp1Pct') / 100,
-            tp2Pct: getParam('tp2Pct') / 100,
-            runnerPct: getParam('runnerPct') / 100
+            maxHoldHours: getParam('maxHoldHours')
         };
 
         try {
@@ -1907,7 +1864,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.1 – parâmetros ajustáveis de gestão implementados.');
+    console.log('Backtest Engine v3.4.0 – fusão da base v3.2.0 com melhorias SHORT da v3.3.3.');
 </script>
 </body>
 </html>
