@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.5.1)</title>
+    <title>Backtest Engine — SMC + MTF (v3.5.2)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.1)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.2)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -127,13 +127,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.5.1:</strong> Correção de P&L NaN, percentuais de fechamento corrigidos (baseado no tamanho original).
+        <strong>v3.5.2:</strong> Correção definitiva do P&L: percentual calculado sobre lucro acumulado em dólares.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.5.1 – CORREÇÃO DE P&L NaN
+    // BACKTEST ENGINE v3.5.2 – CORREÇÃO DE P&L
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (base v3.2.0) -----
@@ -1119,12 +1119,10 @@
                         // TP2
                         if (high >= position.tp2 && !position.tp2Taken) {
                             position.tp2Taken = true;
-                            // Usa o tamanho original para calcular a parcela correta
                             const sizeToClose = position.initialSize * (tp2Percent / 100);
                             const partialPnlPct = (position.tp2 - position.entryPrice) / position.entryPrice * 100;
                             const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
                             position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
                             equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
@@ -1141,7 +1139,6 @@
                             const partialPnlPct = (position.tp1 - position.entryPrice) / position.entryPrice * 100;
                             const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
                             position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
                             equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
@@ -1165,7 +1162,6 @@
                             const partialPnlPct = (position.entryPrice - position.tp2) / position.entryPrice * 100;
                             const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
                             position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
                             equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
@@ -1180,7 +1176,6 @@
                             const partialPnlPct = (position.entryPrice - position.tp1) / position.entryPrice * 100;
                             const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
                             position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
-                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
                             equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
@@ -1200,7 +1195,7 @@
                 }
 
                 if (closed) {
-                    // Garantir que position.sizeRemaining seja um número válido
+                    // Cálculo do lucro da parte remanescente
                     const remSize = isNaN(position.sizeRemaining) ? 0 : position.sizeRemaining;
                     const invested = equity * remSize;
                     const pnlPct = position.type === 'LONG'
@@ -1209,10 +1204,12 @@
                     const pnlUsd = invested * (pnlPct / 100);
                     equity += pnlUsd;
                     if (equity > highWaterMark) highWaterMark = equity;
-                    
+
+                    // Soma total de lucro em dólares
                     const totalPnlUsd = pnlUsd + (position.partialPnlUsd || 0);
-                    const totalPnlPct = (pnlPct * remSize) + (position.partialPnlPct || 0);
-                    
+                    // Percentual sobre o capital inicial ($10.000)
+                    const totalPnlPct = (totalPnlUsd / 10000) * 100;
+
                     trades.push({
                         entryTime: new Date(position.entryTime).toISOString(),
                         exitTime: new Date(candle.time).toISOString(),
@@ -1346,10 +1343,9 @@
                         trailingStop: stop,
                         partialTaken: false,
                         tp2Taken: false,
-                        initialSize: sizeMultiplier, // guarda o tamanho original
+                        initialSize: sizeMultiplier,
                         sizeRemaining: sizeMultiplier,
                         partialPnlUsd: 0,
-                        partialPnlPct: 0,
                         entryTime: candle.time
                     };
                 }
@@ -1366,7 +1362,7 @@
             const pnlUsd = invested * (pnlPct / 100);
             equity += pnlUsd;
             const totalPnlUsd = pnlUsd + (position.partialPnlUsd || 0);
-            const totalPnlPct = (pnlPct * remSize) + (position.partialPnlPct || 0);
+            const totalPnlPct = (totalPnlUsd / 10000) * 100;
             trades.push({
                 entryTime: new Date(position.entryTime).toISOString(),
                 exitTime: new Date(lastCandle.time).toISOString(),
@@ -1912,7 +1908,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.5.1 – correção de P&L NaN aplicada.');
+    console.log('Backtest Engine v3.5.2 – correção definitiva de P&L.');
 </script>
 </body>
 </html>
