@@ -1,12 +1,6 @@
 // ============================================================
-// INDICATOR MODULE – SMC + MTF (v3.3.0)
-// Todas as funções de análise e sinais – atualizado com:
-// - Fractais de Ordem 3 (anti-ruído)
-// - RSI corrigido e rebalanceamento de score
-// - Slope no HTF (filtro de lateral)
-// - Choppiness Index
-// - Funding Hard Limits ampliados
-// - Ajustes de peso no Confidence Score
+// INDICATOR MODULE – SMC + MTF (v3.3.1)
+// Correções: HTF com EMA200, RSI anti-exaustão, BOS em tempo real
 // ============================================================
 
 export const calcEMA = (data, period) => {
@@ -145,7 +139,7 @@ export const detectRSIDivergence = (candles, rsiValues, lookback = 50) => {
 
 // ========== MELHORIAS ESTRUTURAIS ==========
 
-// 1. Fractais de Ordem 3 (anti-ruído) – CORRIGIDO
+// 1. Fractais de Ordem 3 (anti-ruído)
 export const updateSwingPoints = (state) => {
     const candles = state.candles1H || [];
     if (candles.length < 7) return;
@@ -156,7 +150,6 @@ export const updateSwingPoints = (state) => {
     const c5 = candles[candles.length - 3];
     const c6 = candles[candles.length - 2];
     const c7 = candles[candles.length - 1];
-    // Só valida se c4 for estritamente maior que as 3 anteriores e 3 posteriores
     if (c4.high > c1.high && c4.high > c2.high && c4.high > c3.high && 
         c4.high > c5.high && c4.high > c6.high && c4.high > c7.high) {
         state.swingHighs.push(c4.high);
@@ -169,7 +162,7 @@ export const updateSwingPoints = (state) => {
     }
 };
 
-// 2. HTF com Slope (filtro de lateral)
+// 2. HTF com EMA200 como macro tendência (CORRIGIDO – evita flip rápido)
 export const detectHTFStructure = (candles4H) => {
     if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
     const closes = candles4H.map(c => c.close);
@@ -178,14 +171,15 @@ export const detectHTFStructure = (candles4H) => {
     const ema200Arr = calcEMA(closes, 200);
     const ema50 = ema50Arr.slice(-1)[0] || last;
     const ema200 = ema200Arr.slice(-1)[0] || last;
-    const ema50Prev = ema50Arr.slice(-6, -5)[0] || ema50;
-    const slope = ema50 - ema50Prev;
+    
     let bias = 'NEUTRAL';
-    if (last > ema50 && ema50 > ema200 && slope > 0) {
-        bias = 'BULLISH';
-    } else if (last < ema50 && ema50 < ema200 && slope < 0) {
+    // Macro tendência definida pela EMA200 (evita flip rapido no EMA50)
+    if (last < ema200 && ema50 < ema200) {
         bias = 'BEARISH';
+    } else if (last > ema200 && ema50 > ema200) {
+        bias = 'BULLISH';
     }
+    
     return { 
         bias, 
         lastSwingHigh: Math.max(...candles4H.map(c => c.high)), 
@@ -245,7 +239,7 @@ export const KellyPositionSize = (winRate, rr) => {
 
 // ========== SCORE E CONFIANÇA REBALANCEADOS ==========
 
-// 5. computeScore com RSI corrigido e MTF como motor principal
+// 5. computeScore com RSI corrigido para SHORTs (anti-exaustão)
 export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     const data = assetsData[symbol];
     if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
@@ -262,9 +256,9 @@ export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     if (adxValue > adxThreshold) {
         score += (mtfScore > 0 ? 10 : (mtfScore < 0 ? -10 : 0));
     }
-    // RSI como filtro de exaustão (CORRIGIDO: penaliza compra em sobrecompra, venda em sobrevenda)
-    if (rsi > 75) score -= 15;
-    if (rsi < 25) score += 15;
+    // RSI com viés anti-exaustão (CORRIGIDO para SHORT)
+    if (rsi > 70) score -= 20;     // Bounce forte no downtrend (Oportunidade de SHORT)
+    else if (rsi < 30) score += 25; // Exaustão de queda (Bloqueia SHORT, favorece LONG)
     let clamped = Math.max(0, Math.min(100, score));
     const isLateral = checkLateralMarket(adxValue, adxThreshold);
     let blockReason = null;
@@ -280,7 +274,7 @@ export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     };
 };
 
-// 6. calculateConfidenceScore com ajustes de peso (ADX e divergência)
+// 6. calculateConfidenceScore com ajustes de peso
 export const calculateConfidenceScore = ({ 
     mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
     openInterestTrend, divergence, macroBlackout, smcStructure, 
@@ -309,7 +303,7 @@ export const calculateConfidenceScore = ({
         score += sign * 7; 
         reasons.push(`ADX ${adxVal.toFixed(1)} formando`); 
     } else { 
-        score -= sign * 15; // penalidade maior para laterais
+        score -= sign * 15; 
         reasons.push(`ADX ${adxVal.toFixed(1)} lateral/fraco`); 
     }
     
@@ -340,7 +334,7 @@ export const calculateConfidenceScore = ({
     
     if (divergence) {
         if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { 
-            score += 15; // bônus maior
+            score += 15; 
             reasons.push('Divergência RSI altista confirmada'); 
         } else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { 
             score += 15; 
