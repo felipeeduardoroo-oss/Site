@@ -1,6 +1,12 @@
 // ============================================================
-// INDICATOR MODULE – SMC + MTF (v3.1.2)
-// Todas as funções de análise e sinais
+// INDICATOR MODULE – SMC + MTF (v3.3.0)
+// Todas as funções de análise e sinais – atualizado com:
+// - Fractais de Ordem 3 (anti-ruído)
+// - RSI corrigido e rebalanceamento de score
+// - Slope no HTF (filtro de lateral)
+// - Choppiness Index
+// - Funding Hard Limits ampliados
+// - Ajustes de peso no Confidence Score
 // ============================================================
 
 export const calcEMA = (data, period) => {
@@ -137,42 +143,86 @@ export const detectRSIDivergence = (candles, rsiValues, lookback = 50) => {
     return null;
 };
 
+// ========== MELHORIAS ESTRUTURAIS ==========
+
+// 1. Fractais de Ordem 3 (anti-ruído)
 export const updateSwingPoints = (state) => {
     const candles = state.candles1H || [];
-    if (candles.length < 5) return;
-    const c2 = candles[candles.length - 4];
-    const c3 = candles[candles.length - 3];
-    const c4 = candles[candles.length - 2];
-    if (c3.high > c2.high && c3.high > c4.high) {
-        state.swingHighs.push(c3.high);
+    if (candles.length < 7) return;
+    const c1 = candles[candles.length - 7];
+    const c2 = candles[candles.length - 6];
+    const c3 = candles[candles.length - 5];
+    const c4 = candles[candles.length - 4];
+    const c5 = candles[candles.length - 3];
+    const c6 = candles[candles.length - 2];
+    const c7 = candles[candles.length - 1];
+    if (c4.high > c1.high && c4.high > c2.high && c4.high > c3.high && 
+        c4.high > c5.high && c4.high > c6.high && c4.high > c7.high) {
+        state.swingHighs.push(c4.high);
         if (state.swingHighs.length > 20) state.swingHighs.shift();
     }
-    if (c3.low < c2.low && c3.low < c4.low) {
-        state.swingLows.push(c3.low);
+    if (c4.low < c1.low && c4.low < c2.low && c4.low < c3.low && 
+        c4.low < c5.low && c4.low < c6.low && c4.low < c7.low) {
+        state.swingLows.push(c4.low);
         if (state.swingLows.length > 20) state.swingLows.shift();
     }
 };
 
+// 2. HTF com Slope (filtro de lateral)
 export const detectHTFStructure = (candles4H) => {
-    if (!candles4H || candles4H.length < 20) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
+    if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
     const closes = candles4H.map(c => c.close);
     const last = closes[closes.length - 1];
-    const ema50 = calcEMA(closes, 50).slice(-1)[0] || last;
-    const ema200 = calcEMA(closes, 200).slice(-1)[0] || last;
+    const ema50Arr = calcEMA(closes, 50);
+    const ema200Arr = calcEMA(closes, 200);
+    const ema50 = ema50Arr.slice(-1)[0] || last;
+    const ema200 = ema200Arr.slice(-1)[0] || last;
+    const ema50Prev = ema50Arr.slice(-6, -5)[0] || ema50;
+    const slope = ema50 - ema50Prev;
     let bias = 'NEUTRAL';
-    if (last > ema50 && ema50 > ema200) bias = 'BULLISH';
-    else if (last < ema50 && ema50 < ema200) bias = 'BEARISH';
-    return { bias, lastSwingHigh: Math.max(...candles4H.map(c => c.high)), lastSwingLow: Math.min(...candles4H.map(c => c.low)) };
+    if (last > ema50 && ema50 > ema200 && slope > 0) {
+        bias = 'BULLISH';
+    } else if (last < ema50 && ema50 < ema200 && slope < 0) {
+        bias = 'BEARISH';
+    }
+    return { 
+        bias, 
+        lastSwingHigh: Math.max(...candles4H.map(c => c.high)), 
+        lastSwingLow: Math.min(...candles4H.map(c => c.low)) 
+    };
+};
+
+// 3. Choppiness Index (filtro anti-range)
+export const calculateChoppinessIndex = (candles, period = 14) => {
+    if (candles.length < period) return 50;
+    const data = candles.slice(-period);
+    let atrSum = 0;
+    let highestHigh = -Infinity;
+    let lowestLow = Infinity;
+    for (let i = 0; i < data.length; i++) {
+        const high = data[i].high;
+        const low = data[i].low;
+        const close = data[i].close;
+        const prevClose = i > 0 ? data[i-1].close : close;
+        const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+        atrSum += tr;
+        if (high > highestHigh) highestHigh = high;
+        if (low < lowestLow) lowestLow = low;
+    }
+    if (atrSum === 0 || highestHigh === lowestLow) return 50;
+    const ci = (100 * Math.log10(atrSum / (highestHigh - lowestLow))) / Math.log10(period);
+    return ci;
+};
+
+// 4. Funding Hard Limits mais amplos
+export const checkDerivativesFilter = (fundingRate, oiDelta) => {
+    if (fundingRate > 0.0020) return { allow: false, reason: 'Funding extremamente positivo (>0.2%)' };
+    if (fundingRate < -0.0020) return { allow: false, reason: 'Funding extremamente negativo (<-0.2%)' };
+    if (Math.abs(oiDelta) > 20) return { allow: false, reason: 'OI Delta extremo (>20%)' };
+    return { allow: true, reason: 'OK' };
 };
 
 export const checkLateralMarket = (adxValue, threshold = 20) => adxValue < threshold;
-
-export const checkDerivativesFilter = (fundingRate, oiDelta) => {
-    if (fundingRate > 0.0010) return { allow: false, reason: 'Funding muito positivo' };
-    if (fundingRate < -0.0010) return { allow: false, reason: 'Funding muito negativo' };
-    if (Math.abs(oiDelta) > 10) return { allow: false, reason: 'OI Delta extremo' };
-    return { allow: true, reason: 'OK' };
-};
 
 export const detectVolumeAnomaly = (candles, period = 20, threshold = 1.5) => {
     if (candles.length < period) return null;
@@ -192,6 +242,9 @@ export const KellyPositionSize = (winRate, rr) => {
     return Math.min(Math.max(k, 0.01), 0.1);
 };
 
+// ========== SCORE E CONFIANÇA REBALANCEADOS ==========
+
+// 5. computeScore com RSI corrigido e MTF como motor principal
 export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     const data = assetsData[symbol];
     if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
@@ -200,12 +253,17 @@ export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     const adxRaw = data.adx;
     const adxValue = typeof adxRaw === 'object' ? (adxRaw?.adx || 0) : (adxRaw || 0);
     const rsi = data.rsi_1H || 50;
-    let score = base + mtfScore * 5;
+    let score = base;
+    // MTF motor principal (peso 15)
+    if (mtfScore > 0) score += 15;
+    else if (mtfScore < 0) score -= 15;
+    // ADX reforça (peso 10)
     if (adxValue > adxThreshold) {
         score += (mtfScore > 0 ? 10 : (mtfScore < 0 ? -10 : 0));
     }
-    if (rsi > 70) score += 15;
-    if (rsi < 30) score -= 15;
+    // RSI como filtro de exaustão (CORRIGIDO: penaliza sobrecompra/sobrevenda)
+    if (rsi > 75) score -= 15;
+    if (rsi < 25) score += 15;
     let clamped = Math.max(0, Math.min(100, score));
     const isLateral = checkLateralMarket(adxValue, adxThreshold);
     let blockReason = null;
@@ -221,6 +279,7 @@ export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     };
 };
 
+// 6. calculateConfidenceScore com ajustes de peso (ADX e divergência)
 export const calculateConfidenceScore = ({ 
     mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
     openInterestTrend, divergence, macroBlackout, smcStructure, 
@@ -228,7 +287,6 @@ export const calculateConfidenceScore = ({
 }) => {
     let score = 50;
     const reasons = [];
-    
     const sign = direction === 'SHORT' ? -1 : 1;
 
     if (mtfAligned) { 
@@ -243,15 +301,15 @@ export const calculateConfidenceScore = ({
     }
     
     const adxVal = typeof adx === 'object' ? adx.adx : adx;
-    if (adxVal >= 23) { 
+    if (adxVal >= 25) { 
         score += sign * 15; 
         reasons.push(`ADX ${adxVal.toFixed(1)} forte`); 
-    } else if (adxVal >= 18) { 
+    } else if (adxVal >= 20) { 
         score += sign * 7; 
         reasons.push(`ADX ${adxVal.toFixed(1)} formando`); 
     } else { 
-        score -= sign * 10; 
-        reasons.push(`ADX ${adxVal.toFixed(1)} lateral`); 
+        score -= sign * 15; // penalidade maior para laterais
+        reasons.push(`ADX ${adxVal.toFixed(1)} lateral/fraco`); 
     }
     
     if (volumeAnomaly) {
@@ -280,8 +338,13 @@ export const calculateConfidenceScore = ({
     }
     
     if (divergence) {
-        if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { score += 10; reasons.push('Divergência alta'); }
-        else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { score += 10; reasons.push('Divergência baixa'); }
+        if (divergence.type === 'BULLISH_REGULAR' && direction === 'LONG') { 
+            score += 15; // bônus maior
+            reasons.push('Divergência RSI altista confirmada'); 
+        } else if (divergence.type === 'BEARISH_REGULAR' && direction === 'SHORT') { 
+            score += 15; 
+            reasons.push('Divergência RSI baixista confirmada'); 
+        }
     }
     
     if (macroBlackout) { score -= 20; reasons.push('Macro blackout'); }
