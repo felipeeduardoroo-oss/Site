@@ -145,7 +145,7 @@ export const detectRSIDivergence = (candles, rsiValues, lookback = 50) => {
 
 // ========== MELHORIAS ESTRUTURAIS ==========
 
-// 1. Fractais de Ordem 3 (anti-ruído)
+// 1. Fractais de Ordem 3 (anti-ruído) – CORRIGIDO
 export const updateSwingPoints = (state) => {
     const candles = state.candles1H || [];
     if (candles.length < 7) return;
@@ -156,6 +156,7 @@ export const updateSwingPoints = (state) => {
     const c5 = candles[candles.length - 3];
     const c6 = candles[candles.length - 2];
     const c7 = candles[candles.length - 1];
+    // Só valida se c4 for estritamente maior que as 3 anteriores e 3 posteriores
     if (c4.high > c1.high && c4.high > c2.high && c4.high > c3.high && 
         c4.high > c5.high && c4.high > c6.high && c4.high > c7.high) {
         state.swingHighs.push(c4.high);
@@ -261,7 +262,7 @@ export const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
     if (adxValue > adxThreshold) {
         score += (mtfScore > 0 ? 10 : (mtfScore < 0 ? -10 : 0));
     }
-    // RSI como filtro de exaustão (CORRIGIDO: penaliza sobrecompra/sobrevenda)
+    // RSI como filtro de exaustão (CORRIGIDO: penaliza compra em sobrecompra, venda em sobrevenda)
     if (rsi > 75) score -= 15;
     if (rsi < 25) score += 15;
     let clamped = Math.max(0, Math.min(100, score));
