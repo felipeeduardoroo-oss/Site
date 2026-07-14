@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.5.0)</title>
+    <title>Backtest Engine — SMC + MTF (v3.5.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.0)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.1)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -66,7 +66,6 @@
     </div>
 
     <div class="params-grid">
-        <!-- Parâmetros existentes -->
         <div><label>Score mínimo LONG</label><input type="number" id="scoreMin" value="68" min="0" max="100" step="1"></div>
         <div><label>Score máximo SHORT</label><input type="number" id="scoreMaxShort" value="32" min="0" max="100" step="1"></div>
         <div><label>ADX mínimo (base)</label><input type="number" id="adxMin" value="22" min="0" max="100" step="1"></div>
@@ -128,13 +127,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.5.0:</strong> Parâmetros ajustáveis: stop, TP, trailing buffer e percentuais de saída por direção.
+        <strong>v3.5.1:</strong> Correção de P&L NaN, percentuais de fechamento corrigidos (baseado no tamanho original).
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.5.0 – PARÂMETROS AJUSTÁVEIS NA UI
+    // BACKTEST ENGINE v3.5.1 – CORREÇÃO DE P&L NaN
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (base v3.2.0) -----
@@ -696,7 +695,7 @@
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COMPLETO (com parâmetros ajustáveis) =====
+    // ===== BACKTEST COMPLETO (CORRIGIDO) =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -711,7 +710,6 @@
             zFundingMax = 1.5,
             zOiMax = 1.5,
             maxHoldHours = 72,
-            // Novos parâmetros
             stopLong = 1.5,
             stopShort = 2.0,
             tp1Long = 2.0,
@@ -1102,7 +1100,7 @@
                 if (!derivCheck.allow) blockReason = derivCheck.reason;
             }
 
-            // ===== GESTÃO DE POSIÇÃO (com parâmetros ajustáveis) =====
+            // ===== GESTÃO DE POSIÇÃO (CORRIGIDA) =====
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
@@ -1121,11 +1119,13 @@
                         // TP2
                         if (high >= position.tp2 && !position.tp2Taken) {
                             position.tp2Taken = true;
-                            const sizeToClose = position.sizeRemaining * (tp2Percent / 100);
+                            // Usa o tamanho original para calcular a parcela correta
+                            const sizeToClose = position.initialSize * (tp2Percent / 100);
                             const partialPnlPct = (position.tp2 - position.entryPrice) / position.entryPrice * 100;
-                            position.partialPnlUsd += (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlPct += partialPnlPct * sizeToClose;
-                            equity += (equity * sizeToClose) * (partialPnlPct / 100);
+                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
+                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
+                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
+                            equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
                             position.trailingStop = Math.max(position.trailingStop, position.tp1);
@@ -1137,14 +1137,14 @@
                         // TP1
                         else if (high >= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
-                            const sizeToClose = position.sizeRemaining * (tp1Percent / 100);
+                            const sizeToClose = position.initialSize * (tp1Percent / 100);
                             const partialPnlPct = (position.tp1 - position.entryPrice) / position.entryPrice * 100;
-                            position.partialPnlUsd = (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlPct = partialPnlPct * sizeToClose;
-                            equity += position.partialPnlUsd;
+                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
+                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
+                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
+                            equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
-                            // Trailing buffer configurável
                             position.trailingStop = position.entryPrice + state.atr_1H * trailingBufferLong;
                         }
                         // Runner: trailing stop por estrutura
@@ -1161,11 +1161,12 @@
                     } else { // SHORT
                         if (low <= position.tp2 && !position.tp2Taken) {
                             position.tp2Taken = true;
-                            const sizeToClose = position.sizeRemaining * (tp2Percent / 100);
+                            const sizeToClose = position.initialSize * (tp2Percent / 100);
                             const partialPnlPct = (position.entryPrice - position.tp2) / position.entryPrice * 100;
-                            position.partialPnlUsd += (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlPct += partialPnlPct * sizeToClose;
-                            equity += (equity * sizeToClose) * (partialPnlPct / 100);
+                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
+                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
+                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
+                            equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
                             position.trailingStop = Math.min(position.trailingStop, position.tp1);
@@ -1175,11 +1176,12 @@
                         }
                         else if (low <= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
-                            const sizeToClose = position.sizeRemaining * (tp1Percent / 100);
+                            const sizeToClose = position.initialSize * (tp1Percent / 100);
                             const partialPnlPct = (position.entryPrice - position.tp1) / position.entryPrice * 100;
-                            position.partialPnlUsd = (equity * sizeToClose) * (partialPnlPct / 100);
-                            position.partialPnlPct = partialPnlPct * sizeToClose;
-                            equity += position.partialPnlUsd;
+                            const pnlUsdPartial = (equity * sizeToClose) * (partialPnlPct / 100);
+                            position.partialPnlUsd = (position.partialPnlUsd || 0) + pnlUsdPartial;
+                            position.partialPnlPct = (position.partialPnlPct || 0) + (partialPnlPct * sizeToClose);
+                            equity += pnlUsdPartial;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= sizeToClose;
                             position.trailingStop = position.entryPrice - state.atr_1H * trailingBufferShort;
@@ -1198,7 +1200,9 @@
                 }
 
                 if (closed) {
-                    const invested = equity * position.sizeRemaining;
+                    // Garantir que position.sizeRemaining seja um número válido
+                    const remSize = isNaN(position.sizeRemaining) ? 0 : position.sizeRemaining;
+                    const invested = equity * remSize;
                     const pnlPct = position.type === 'LONG'
                         ? (exitPrice - position.entryPrice) / position.entryPrice * 100
                         : (position.entryPrice - exitPrice) / position.entryPrice * 100;
@@ -1207,7 +1211,7 @@
                     if (equity > highWaterMark) highWaterMark = equity;
                     
                     const totalPnlUsd = pnlUsd + (position.partialPnlUsd || 0);
-                    const totalPnlPct = (pnlPct * position.sizeRemaining) + (position.partialPnlPct || 0);
+                    const totalPnlPct = (pnlPct * remSize) + (position.partialPnlPct || 0);
                     
                     trades.push({
                         entryTime: new Date(position.entryTime).toISOString(),
@@ -1218,8 +1222,8 @@
                         stopLoss: position.stop,
                         takeProfit1: position.tp1,
                         exitPrice,
-                        pnlPct: totalPnlPct.toFixed(2),
-                        pnlUsd: totalPnlUsd.toFixed(2),
+                        pnlPct: isNaN(totalPnlPct) ? '0.00' : totalPnlPct.toFixed(2),
+                        pnlUsd: isNaN(totalPnlUsd) ? '0.00' : totalPnlUsd.toFixed(2),
                         durationHours: ((candle.time - position.entryTime) / 3600000).toFixed(1),
                         reason
                     });
@@ -1229,7 +1233,7 @@
                 }
             }
 
-            // ----- ENTRADA (com parâmetros ajustáveis) -----
+            // ----- ENTRADA -----
             if (!position && !blockReason && primaryDirection) {
                 const atr = state.atr_1H || (state.price * 0.02);
                 let smcSetup = false, retestConfirmed = false, brokenLevel = null;
@@ -1342,6 +1346,7 @@
                         trailingStop: stop,
                         partialTaken: false,
                         tp2Taken: false,
+                        initialSize: sizeMultiplier, // guarda o tamanho original
                         sizeRemaining: sizeMultiplier,
                         partialPnlUsd: 0,
                         partialPnlPct: 0,
@@ -1355,12 +1360,13 @@
         if (position) {
             const lastCandle = filteredCandles[filteredCandles.length - 1];
             const exitPrice = lastCandle.close;
-            const invested = equity * position.sizeRemaining;
+            const remSize = isNaN(position.sizeRemaining) ? 0 : position.sizeRemaining;
+            const invested = equity * remSize;
             const pnlPct = position.type === 'LONG' ? (exitPrice - position.entryPrice) / position.entryPrice * 100 : (position.entryPrice - exitPrice) / position.entryPrice * 100;
             const pnlUsd = invested * (pnlPct / 100);
             equity += pnlUsd;
             const totalPnlUsd = pnlUsd + (position.partialPnlUsd || 0);
-            const totalPnlPct = (pnlPct * position.sizeRemaining) + (position.partialPnlPct || 0);
+            const totalPnlPct = (pnlPct * remSize) + (position.partialPnlPct || 0);
             trades.push({
                 entryTime: new Date(position.entryTime).toISOString(),
                 exitTime: new Date(lastCandle.time).toISOString(),
@@ -1370,8 +1376,8 @@
                 stopLoss: position.stop,
                 takeProfit1: position.tp1,
                 exitPrice,
-                pnlPct: totalPnlPct.toFixed(2),
-                pnlUsd: totalPnlUsd.toFixed(2),
+                pnlPct: isNaN(totalPnlPct) ? '0.00' : totalPnlPct.toFixed(2),
+                pnlUsd: isNaN(totalPnlUsd) ? '0.00' : totalPnlUsd.toFixed(2),
                 durationHours: ((lastCandle.time - position.entryTime) / 3600000).toFixed(1),
                 reason: 'Fechamento forçado'
             });
@@ -1425,7 +1431,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO (mesmo) =====
+    // ===== GERAR RELATÓRIO (com tratamento de NaN) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1438,12 +1444,12 @@
             return;
         }
 
-        const winrate = summary.winrate;
-        const totalPnlPct = summary.totalPnlPct;
-        const totalPnlUsd = summary.totalPnlUsd;
-        const profitFactor = summary.profitFactor;
-        const maxDrawdown = summary.maxDrawdown;
-        const annualizedReturn = summary.annualizedReturn;
+        const winrate = summary.winrate || 0;
+        const totalPnlPct = isNaN(summary.totalPnlPct) ? 0 : summary.totalPnlPct;
+        const totalPnlUsd = isNaN(summary.totalPnlUsd) ? 0 : summary.totalPnlUsd;
+        const profitFactor = isNaN(summary.profitFactor) ? 0 : summary.profitFactor;
+        const maxDrawdown = isNaN(summary.maxDrawdown) ? 0 : summary.maxDrawdown;
+        const annualizedReturn = isNaN(summary.annualizedReturn) ? 0 : summary.annualizedReturn;
 
         const longs = closed.filter(t => t.direction === 'LONG');
         const shorts = closed.filter(t => t.direction === 'SHORT');
@@ -1477,7 +1483,7 @@
         closed.forEach(t => {
             const month = new Date(t.entryTime).toISOString().slice(0, 7);
             if (!monthly[month]) monthly[month] = { wins: 0, losses: 0, pnl: 0, count: 0 };
-            const pnl = parseFloat(t.pnlPct);
+            const pnl = parseFloat(t.pnlPct) || 0;
             monthly[month].pnl += pnl;
             monthly[month].count++;
             if (pnl > 0) monthly[month].wins++;
@@ -1501,7 +1507,7 @@
             .map(([filter, count]) => ({ filter, count, pct: (count / totalBlocks * 100) }))
             .sort((a, b) => b.count - a.count);
 
-        const pnlValues = closed.map(t => parseFloat(t.pnlPct));
+        const pnlValues = closed.map(t => parseFloat(t.pnlPct) || 0);
         const avgPnl = pnlValues.reduce((a, b) => a + b, 0) / pnlValues.length;
         const variance = pnlValues.reduce((s, v) => s + (v - avgPnl) ** 2, 0) / pnlValues.length;
         const stdDev = Math.sqrt(variance);
@@ -1906,7 +1912,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.5.0 – parâmetros ajustáveis adicionados.');
+    console.log('Backtest Engine v3.5.1 – correção de P&L NaN aplicada.');
 </script>
 </body>
 </html>
