@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.5.2)</title>
+    <title>Backtest Engine — SMC + MTF (v3.5.3)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.2)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.3)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -127,13 +127,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.5.2:</strong> Correção definitiva do P&L: percentual calculado sobre lucro acumulado em dólares.
+        <strong>v3.5.3:</strong> Correção: tamanho mínimo da posição de 1% para evitar P&L zero.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.5.2 – CORREÇÃO DE P&L
+    // BACKTEST ENGINE v3.5.3 – CORREÇÃO DE TAMANHO DA POSIÇÃO
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (base v3.2.0) -----
@@ -1329,10 +1329,12 @@
                     const totalTrades = winCount + lossCount;
                     const winRate = totalTrades > 0 ? winCount / totalTrades : 0.5;
                     const kellyPct = KellyPositionSize(winRate, rrPonderado);
-                    const riskFraction = Math.min(kellyPct, 0.05);
+                    // GARANTE RISCO MÍNIMO DE 1%
+                    const riskFraction = Math.max(Math.min(kellyPct, 0.05), 0.01);
                     const stopDistancePct = primaryDirection === 'LONG' ? (state.price - stop) / state.price : (stop - state.price) / state.price;
                     const positionSizeUSD = (riskFraction * equity) / stopDistancePct;
-                    const sizeMultiplier = Math.min(positionSizeUSD / equity, 1.0);
+                    // GARANTE TAMANHO MÍNIMO DE 1% DO CAPITAL
+                    const sizeMultiplier = Math.max(Math.min(positionSizeUSD / equity, 1.0), 0.01);
 
                     position = {
                         type: primaryDirection,
@@ -1908,7 +1910,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.5.2 – correção definitiva de P&L.');
+    console.log('Backtest Engine v3.5.3 – tamanho mínimo da posição aplicado.');
 </script>
 </body>
 </html>
