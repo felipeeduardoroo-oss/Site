@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.3.2)</title>
+    <title>Backtest Engine — SMC + MTF (v3.3.3)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.3.2)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.3.3)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -114,16 +114,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.3.2:</strong> Correções definitivas para SHORTs: Funding positivo = oportunidade, OI crescente = tendência, HTF relaxado, RSI ajustado.
+        <strong>v3.3.3:</strong> Persistência HTF (3 velas 4H), retest 40% mais apertado para SHORTs.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.3.2 – CORREÇÕES PARA SHORTS
+    // BACKTEST ENGINE v3.3.3 – PERSISTÊNCIA HTF + RETEST APERTADO
     // ============================================================
 
-    // ----- FUNÇÕES DO INDICADOR (com melhorias v3.3.2) -----
+    // ----- FUNÇÕES DO INDICADOR (com melhorias v3.3.3) -----
 
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
@@ -282,16 +282,19 @@
         }
     };
 
-    // [MELHORIA 2] HTF relaxado (apenas EMA200)
+    // [MELHORIA 1] HTF com persistência (3 velas 4H)
     const detectHTFStructure = (candles4H) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
-        const last = closes[closes.length - 1];
         const ema200Arr = calcEMA(closes, 200);
-        const ema200 = ema200Arr.slice(-1)[0] || last;
+        const last3 = closes.slice(-3);
+        const ema200Last3 = ema200Arr.slice(-3);
+        // Exige que as 3 últimas velas 4H estejam abaixo/ acima da EMA200
+        const allBelow = last3.every((c, i) => c < ema200Last3[i]);
+        const allAbove = last3.every((c, i) => c > ema200Last3[i]);
         let bias = 'NEUTRAL';
-        if (last < ema200) bias = 'BEARISH';
-        else if (last > ema200) bias = 'BULLISH';
+        if (allBelow) bias = 'BEARISH';
+        else if (allAbove) bias = 'BULLISH';
         return { 
             bias, 
             lastSwingHigh: Math.max(...candles4H.map(c => c.high)), 
@@ -323,7 +326,7 @@
 
     const checkLateralMarket = (adxValue, threshold = 20) => adxValue < threshold;
 
-    // [MELHORIA 3] Funding Hard Limit removido
+    // Funding Hard Limit removido
     const checkDerivativesFilter = (fundingRate, oiDelta) => {
         if (Math.abs(oiDelta) > 25) return { allow: false, reason: 'OI Delta extremo (>25%)' };
         return { allow: true, reason: 'OK' };
@@ -347,7 +350,7 @@
         return Math.min(Math.max(k, 0.01), 0.1);
     };
 
-    // [MELHORIA 4] RSI ajustado – não força entrada cega
+    // computeScore com RSI ajustado
     const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
         const data = assetsData[symbol];
         if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
@@ -363,8 +366,8 @@
             score += (mtfScore > 0 ? 10 : (mtfScore < 0 ? -10 : 0));
         }
         // RSI ajustado
-        if (rsi < 30) score += 30; // Bloqueia SHORT severamente, evita V-Bounce
-        else if (rsi > 70) score -= 10; // Leve viés de SHORT, mas não força
+        if (rsi < 30) score += 30;
+        else if (rsi > 70) score -= 10;
         let clamped = Math.max(0, Math.min(100, score));
         const isLateral = checkLateralMarket(adxValue, adxThreshold);
         let blockReason = null;
@@ -380,7 +383,7 @@
         };
     };
 
-    // [MELHORIA 1] Funding e OI corrigidos para SHORTs
+    // Confidence Score com funding e OI corrigidos
     const calculateConfidenceScore = ({ 
         mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
         openInterestTrend, divergence, macroBlackout, smcStructure, 
@@ -408,7 +411,6 @@
             if (fundingRate > 0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding elevado (LONG)'); }
             else if (fundingRate < 0) { score += FUNDING_BONUS; reasons.push('Funding negativo (LONG)'); }
         } else if (direction === 'SHORT') {
-            // CORRIGIDO: Funding positivo é ideal para SHORT
             if (fundingRate > 0.0006) { score -= FUNDING_PENALTY; reasons.push('Funding positivo (SHORT ideal)'); }
             else if (fundingRate < 0) { score += FUNDING_BONUS; reasons.push('Funding negativo (Risco squeeze)'); }
         }
@@ -419,7 +421,6 @@
         }
         if (macroBlackout) { score -= 20; reasons.push('Macro blackout'); }
         
-        // CORRIGIDO: OI crescente em SHORT = tendência forte; decrescente = squeeze
         if (openInterestTrend === 'INCREASING' && direction === 'LONG') { score += 5; reasons.push('OI crescente LONG'); }
         else if (openInterestTrend === 'INCREASING' && direction === 'SHORT') { score -= 5; reasons.push('OI crescente SHORT (Tendência forte)'); }
         else if (openInterestTrend === 'DECREASING' && direction === 'SHORT') { score += 10; reasons.push('OI decrescente SHORT (Risco squeeze)'); }
@@ -1016,7 +1017,7 @@
 
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // ===== BOS EM TEMPO REAL (baseado na vela anterior) =====
+            // ===== BOS EM TEMPO REAL =====
             const prevCandle = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2] : null;
             const lastSwingHigh = state.swingHighs.length > 0 ? state.swingHighs[state.swingHighs.length - 1] : null;
             const lastSwingLow = state.swingLows.length > 0 ? state.swingLows[state.swingLows.length - 1] : null;
@@ -1027,7 +1028,7 @@
             const bosBear = primaryDirection === 'SHORT' && refLow !== null && candle.close < refLow;
             state.currentBOS = (bosBull || bosBear) ? 'BOS' : 'NEUTRAL';
 
-            // Filtros adicionais (DI, VWAP, HTF, etc.)
+            // Filtros adicionais
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -1188,13 +1189,16 @@
                 const recentHighs = state.swingHighs.slice(-3);
                 const recentLows = state.swingLows.slice(-3);
 
+                // [MELHORIA 2] Retest mais apertado para SHORTs
+                const retestDistPctEffective = primaryDirection === 'SHORT' ? retestDistPct * 0.6 : retestDistPct;
+
                 if (primaryDirection === 'LONG') {
                     const brokenHighs = recentHighs.filter(h => h < state.price);
                     if (brokenHighs.length > 0) {
                         brokenLevel = Math.max(...brokenHighs);
                         smcSetup = true;
                         const distInAtr = Math.abs(state.price - brokenLevel) / (state.atr_1H || (state.price * 0.01));
-                        retestConfirmed = distInAtr < retestDistPct;
+                        retestConfirmed = distInAtr < retestDistPctEffective;
                     }
                 } else {
                     const brokenLows = recentLows.filter(l => l > state.price);
@@ -1202,7 +1206,7 @@
                         brokenLevel = Math.min(...brokenLows);
                         smcSetup = true;
                         const distInAtr = Math.abs(state.price - brokenLevel) / (state.atr_1H || (state.price * 0.01));
-                        retestConfirmed = distInAtr < retestDistPct;
+                        retestConfirmed = distInAtr < retestDistPctEffective;
                     }
                 }
 
@@ -1834,7 +1838,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.3.2 – correções definitivas para SHORTs aplicadas.');
+    console.log('Backtest Engine v3.3.3 – persistência HTF + retest apertado para SHORTs.');
 </script>
 </body>
 </html>
