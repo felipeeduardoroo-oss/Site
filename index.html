@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.2.1)</title>
+    <title>Backtest Engine — SMC + MTF (v3.3.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.2.1)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.3.0)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -114,13 +114,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.2.1:</strong> Todas as melhorias: Fractais Ordem 3, RSI corrigido, Score rebalanceado, Slope HTF, Choppiness Index, Ajuste Confidence, Funding Hard Limits, BOS histórico, TP1 contabilizado, sem trade fantasma, trailing buffer 1.2 ATR, tempo dinâmico, modo live.
+        <strong>v3.3.0:</strong> Runner TP por estrutura, Fractais Ordem 3, RSI/MTF rebalanceado, Choppiness Index, Funding Hard Limits, BOS histórico, TP1/TP2 contabilizados, sem trade fantasma, trailing por swing points, modo live.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.2.1 – TODAS AS MELHORIAS APLICADAS
+    // BACKTEST ENGINE v3.3.0 – RUNNER TP POR ESTRUTURA
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (com melhorias) -----
@@ -259,7 +259,7 @@
         return null;
     };
 
-    // [MELHORIA 1] Fractais de Ordem 3
+    // [MELHORIA 2] Fractais de Ordem 3 (base estrutural)
     const updateSwingPoints = (state) => {
         const candles = state.candles1H || [];
         if (candles.length < 7) return;
@@ -282,7 +282,7 @@
         }
     };
 
-    // [MELHORIA 3] Slope no HTF
+    // [MELHORIA 3] Slope no HTF (já implementado)
     const detectHTFStructure = (candles4H) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
@@ -306,7 +306,7 @@
         };
     };
 
-    // [MELHORIA 4] Choppiness Index
+    // Choppiness Index
     const calculateChoppinessIndex = (candles, period = 14) => {
         if (candles.length < period) return 50;
         const data = candles.slice(-period);
@@ -330,7 +330,7 @@
 
     const checkLateralMarket = (adxValue, threshold = 20) => adxValue < threshold;
 
-    // [MELHORIA 5] Funding Hard Limits mais amplos
+    // Funding Hard Limits mais amplos
     const checkDerivativesFilter = (fundingRate, oiDelta) => {
         if (fundingRate > 0.0020) return { allow: false, reason: 'Funding extremamente positivo (>0.2%)' };
         if (fundingRate < -0.0020) return { allow: false, reason: 'Funding extremamente negativo (<-0.2%)' };
@@ -356,7 +356,7 @@
         return Math.min(Math.max(k, 0.01), 0.1);
     };
 
-    // [MELHORIA 2] Rebalanceamento do Score Base + RSI corrigido
+    // [MELHORIA 3] Rebalanceamento do Score Base + RSI corrigido
     const computeScore = (symbol, assetsData, liqMap, adxThreshold) => {
         const data = assetsData[symbol];
         if (!data) return { score: 50, direction: 'NEUTRAL', components: {}, blockReason: 'Sem dados' };
@@ -391,7 +391,7 @@
         };
     };
 
-    // [MELHORIA 5] Ajuste de peso no Confidence Score
+    // Confidence Score com ajustes
     const calculateConfidenceScore = ({ 
         mtfAligned, mtfAlignedParcial, adx, volumeAnomaly, fundingRate, 
         openInterestTrend, divergence, macroBlackout, smcStructure, 
@@ -911,7 +911,7 @@
             }
         };
 
-        // ----- MTF com Slope (melhoria já incluída) -----
+        // ----- MTF com Slope -----
         const getMTFAlignmentAtTime = (currentTime) => {
             const relevant1H = state.candles1H.filter(c => c.time <= currentTime).slice(-50);
             const relevant4H = state.candles4H.filter(c => c.time <= currentTime).slice(-50);
@@ -974,15 +974,6 @@
             state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
             state.macroBlackout = false;
 
-            // Filtro MVRV
-            if (state.mvrv !== null) {
-                if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
-                    blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
-                } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
-                    blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
-                }
-            }
-
             state.mtfConfluence = getMTFAlignmentAtTime(candle.time);
 
             if (state.candles1H.length >= 20) {
@@ -1009,7 +1000,7 @@
                 }
             }
 
-            // [MELHORIA 4] Choppiness Index
+            // Choppiness Index
             const ci = calculateChoppinessIndex(state.candles1H, 14);
             if (ci > 61.8) {
                 blockStats['choppy_market_ci'] = (blockStats['choppy_market_ci'] || 0) + 1;
@@ -1123,14 +1114,15 @@
                 if (!derivCheck.allow) blockReason = derivCheck.reason;
             }
 
-            // ===== GESTÃO DE POSIÇÃO (com TP1 contabilizado, sem trade fantasma) =====
+            // ===== GESTÃO DE POSIÇÃO (RUNNER TP POR ESTRUTURA) =====
             if (position) {
                 const high = candle.high, low = candle.low;
                 let closed = false, exitPrice = 0, reason = '';
                 const volatilityFactor = state.volatilityFactor || 1.0;
 
-                const dynamicMaxHold = (adxValNow > 30) ? maxHoldHours * 1.5 : maxHoldHours;
+                // 1. LIMITE DE TEMPO MÁXIMO
                 const holdHours = (candle.time - position.entryTime) / 3600000;
+                const dynamicMaxHold = (adxValNow > 30) ? maxHoldHours * 1.5 : maxHoldHours;
                 if (holdHours >= dynamicMaxHold) {
                     exitPrice = candle.close;
                     closed = true;
@@ -1139,11 +1131,25 @@
 
                 if (!closed) {
                     if (position.type === 'LONG') {
-                        if (high >= position.tp2) {
-                            exitPrice = position.tp2; closed = true; reason = 'TP2';
-                        } else if (!position.partialTaken && low <= position.stop) {
+                        // TP2 fecha mais 30% (Total fechado: 80%)
+                        if (high >= position.tp2 && !position.tp2Taken) {
+                            position.tp2Taken = true;
+                            const sizeTP2 = position.sizeRemaining * 0.6; // 60% do que sobrou (30% do total)
+                            const partialPnlPct = (position.tp2 - position.entryPrice) / position.entryPrice * 100;
+                            position.partialPnlUsd += (equity * sizeTP2) * (partialPnlPct / 100);
+                            position.partialPnlPct += partialPnlPct * sizeTP2;
+                            equity += (equity * sizeTP2) * (partialPnlPct / 100);
+                            if (equity > highWaterMark) highWaterMark = equity;
+                            position.sizeRemaining -= sizeTP2;
+                            // Ajusta trailing para lockar lucro do TP1
+                            position.trailingStop = Math.max(position.trailingStop, position.tp1);
+                        }
+                        // Stop Loss inicial (só ativa se TP1 não for tocado)
+                        else if (!position.partialTaken && low <= position.stop) {
                             exitPrice = position.stop; closed = true; reason = 'Stop Loss';
-                        } else if (high >= position.tp1 && !position.partialTaken) {
+                        }
+                        // TP1 fecha 50%
+                        else if (high >= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
                             const halfSize = position.sizeRemaining * 0.5;
                             const partialPnlPct = (position.tp1 - position.entryPrice) / position.entryPrice * 100;
@@ -1152,16 +1158,35 @@
                             equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= halfSize;
-                            position.trailingStop = Math.max(position.entryPrice, position.entryPrice + state.atr_1H * volatilityFactor * 1.2);
-                        } else if (position.partialTaken && low <= position.trailingStop) {
-                            exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop';
+                            position.trailingStop = position.entryPrice + state.atr_1H * 0.2; // Breakeven + buffer
+                        }
+                        // RUNNER: Trailing Stop por Estrutura (Swing Lows)
+                        else if (position.partialTaken) {
+                            if (state.swingLows.length > 0) {
+                                const lastSwingLow = state.swingLows[state.swingLows.length - 1];
+                                const newStop = lastSwingLow - state.atr_1H * volatilityFactor * 0.8;
+                                if (newStop > position.trailingStop) position.trailingStop = newStop;
+                            }
+                            if (low <= position.trailingStop) {
+                                exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop (BOS)';
+                            }
                         }
                     } else { // SHORT
-                        if (low <= position.tp2) {
-                            exitPrice = position.tp2; closed = true; reason = 'TP2';
-                        } else if (!position.partialTaken && high >= position.stop) {
+                        if (low <= position.tp2 && !position.tp2Taken) {
+                            position.tp2Taken = true;
+                            const sizeTP2 = position.sizeRemaining * 0.6;
+                            const partialPnlPct = (position.entryPrice - position.tp2) / position.entryPrice * 100;
+                            position.partialPnlUsd += (equity * sizeTP2) * (partialPnlPct / 100);
+                            position.partialPnlPct += partialPnlPct * sizeTP2;
+                            equity += (equity * sizeTP2) * (partialPnlPct / 100);
+                            if (equity > highWaterMark) highWaterMark = equity;
+                            position.sizeRemaining -= sizeTP2;
+                            position.trailingStop = Math.min(position.trailingStop, position.tp1);
+                        }
+                        else if (!position.partialTaken && high >= position.stop) {
                             exitPrice = position.stop; closed = true; reason = 'Stop Loss';
-                        } else if (low <= position.tp1 && !position.partialTaken) {
+                        }
+                        else if (low <= position.tp1 && !position.partialTaken) {
                             position.partialTaken = true;
                             const halfSize = position.sizeRemaining * 0.5;
                             const partialPnlPct = (position.entryPrice - position.tp1) / position.entryPrice * 100;
@@ -1170,27 +1195,17 @@
                             equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= halfSize;
-                            position.trailingStop = Math.min(position.entryPrice, position.entryPrice - state.atr_1H * volatilityFactor * 1.2);
-                        } else if (position.partialTaken && high >= position.trailingStop) {
-                            exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop';
+                            position.trailingStop = position.entryPrice - state.atr_1H * 0.2;
                         }
-                    }
-                }
-
-                // Ajuste dinâmico do trailing stop
-                if (!closed && position.partialTaken) {
-                    const bodyMgmt = Math.abs(candle.close - candle.open);
-                    const rangeMgmt = candle.high - candle.low;
-                    const isDojiMgmt = rangeMgmt > 0 && (bodyMgmt / rangeMgmt) < 0.3;
-                    if (!isDojiMgmt) {
-                        if (position.type === 'LONG' && state.swingLows.length > 0) {
-                            const newLow = Math.min(...state.swingLows);
-                            const newStop = newLow - state.atr_1H * volatilityFactor * 1.2;
-                            if (newStop > position.trailingStop) position.trailingStop = newStop;
-                        } else if (position.type === 'SHORT' && state.swingHighs.length > 0) {
-                            const newHigh = Math.max(...state.swingHighs);
-                            const newStop = newHigh + state.atr_1H * volatilityFactor * 1.2;
-                            if (newStop < position.trailingStop) position.trailingStop = newStop;
+                        else if (position.partialTaken) {
+                            if (state.swingHighs.length > 0) {
+                                const lastSwingHigh = state.swingHighs[state.swingHighs.length - 1];
+                                const newStop = lastSwingHigh + state.atr_1H * volatilityFactor * 0.8;
+                                if (newStop < position.trailingStop || position.trailingStop === 0) position.trailingStop = newStop;
+                            }
+                            if (high >= position.trailingStop) {
+                                exitPrice = position.trailingStop; closed = true; reason = 'Trailing Stop (BOS)';
+                            }
                         }
                     }
                 }
@@ -1210,19 +1225,12 @@
                     trades.push({
                         entryTime: new Date(position.entryTime).toISOString(),
                         exitTime: new Date(candle.time).toISOString(),
-                        symbol,
-                        direction: position.type,
-                        entryPrice: position.entryPrice,
-                        stopLoss: position.stop,
-                        takeProfit1: position.tp1,
-                        exitPrice,
-                        pnlPct: totalPnlPct.toFixed(2),
-                        pnlUsd: totalPnlUsd.toFixed(2),
-                        durationHours: ((candle.time - position.entryTime) / 3600000).toFixed(1),
-                        reason
+                        symbol, direction: position.type, entryPrice: position.entryPrice,
+                        stopLoss: position.stop, takeProfit1: position.tp1,
+                        exitPrice, pnlPct: totalPnlPct.toFixed(2), pnlUsd: totalPnlUsd.toFixed(2),
+                        durationHours: ((candle.time - position.entryTime) / 3600000).toFixed(1), reason
                     });
-                    if (totalPnlUsd > 0) winCount++;
-                    else lossCount++;
+                    if (totalPnlUsd > 0) winCount++; else lossCount++;
                     position = null;
                 }
             }
@@ -1348,6 +1356,7 @@
                         tp2: tp2,
                         trailingStop: stop,
                         partialTaken: false,
+                        tp2Taken: false,   // NOVO: controle do TP2
                         sizeRemaining: sizeMultiplier,
                         partialPnlUsd: 0,
                         partialPnlPct: 0,
@@ -1371,19 +1380,13 @@
             trades.push({
                 entryTime: new Date(position.entryTime).toISOString(),
                 exitTime: new Date(lastCandle.time).toISOString(),
-                symbol,
-                direction: position.type,
-                entryPrice: position.entryPrice,
-                stopLoss: position.stop,
-                takeProfit1: position.tp1,
-                exitPrice,
-                pnlPct: totalPnlPct.toFixed(2),
-                pnlUsd: totalPnlUsd.toFixed(2),
+                symbol, direction: position.type, entryPrice: position.entryPrice,
+                stopLoss: position.stop, takeProfit1: position.tp1,
+                exitPrice, pnlPct: totalPnlPct.toFixed(2), pnlUsd: totalPnlUsd.toFixed(2),
                 durationHours: ((lastCandle.time - position.entryTime) / 3600000).toFixed(1),
                 reason: 'Fechamento forçado'
             });
-            if (totalPnlUsd > 0) winCount++;
-            else lossCount++;
+            if (totalPnlUsd > 0) winCount++; else lossCount++;
             position = null;
         }
 
@@ -1895,7 +1898,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.2.1 – todas as melhorias aplicadas.');
+    console.log('Backtest Engine v3.3.0 – Runner TP por estrutura implementado.');
 </script>
 </body>
 </html>
