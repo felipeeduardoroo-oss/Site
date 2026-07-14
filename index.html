@@ -87,7 +87,7 @@
             <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="emaRetest"> EMA Retest</label>
         </div>
 
-        <!-- Parâmetros ajustáveis de gestão -->
+        <!-- Parâmetros ajustáveis -->
         <div><label>Stop LONG (ATR)</label><input type="number" id="stopLong" value="1.5" min="0.5" max="5" step="0.1"></div>
         <div><label>Stop SHORT (ATR)</label><input type="number" id="stopShort" value="2.0" min="0.5" max="5" step="0.1"></div>
         <div><label>TP1 LONG (ATR)</label><input type="number" id="tp1Long" value="2.0" min="0.5" max="10" step="0.1"></div>
@@ -127,17 +127,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.2:</strong> Corrigido: trailing inicial com fator de volatilidade, TP2 com fração correta, parâmetros ajustáveis.
+        <strong>v3.4.2:</strong> Corrigido: trailing inicial com fator de volatilidade, TP2 com fração correta, parâmetros ajustáveis, relatório completo.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.2 – CORREÇÕES DE TRAILING E TP2
+    // BACKTEST ENGINE v3.4.2 – COMPLETO E CORRIGIDO
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (base v3.4.0) -----
-
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -421,7 +420,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ----- FIM DAS FUNÇÕES DO INDICADOR (inalteradas) -----
+    // ----- FIM DAS FUNÇÕES DO INDICADOR -----
 
     // ----- VARIÁVEIS GLOBAIS -----
     let cachedData = {
@@ -435,7 +434,7 @@
     let lastParams = null;
     let liveInterval = null;
 
-    // ----- FETCH COM PAGINAÇÃO (mesmo código) -----
+    // ----- FETCH (código completo) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -1103,7 +1102,6 @@
                             equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= closeSize;
-                            // CORRIGIDO: com volatilityFactor e Math.max
                             position.trailingStop = Math.max(position.entryPrice, position.entryPrice + state.atr_1H * volatilityFactor * trailLong);
                         }
                         // Trailing após parcial
@@ -1147,7 +1145,6 @@
                             equity += position.partialPnlUsd;
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= closeSize;
-                            // CORRIGIDO: com volatilityFactor e Math.min
                             position.trailingStop = Math.min(position.entryPrice, position.entryPrice - state.atr_1H * volatilityFactor * trailShort);
                         }
                         // Trailing após parcial
@@ -1425,9 +1422,277 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO (mesmo) =====
+    // ===== GERAR RELATÓRIO (COMPLETO) =====
     function generateReport(trades, summary, symbol, days, params) {
-        // (mesmo código de relatório, sem alterações – omitido para encurtar, mas presente na versão completa)
+        if (!trades || trades.length === 0) {
+            alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
+            return;
+        }
+
+        const closed = trades.filter(t => t.exitTime !== null && t.pnlPct !== null);
+        if (closed.length === 0) {
+            alert('Nenhum trade fechado para gerar relatório.');
+            return;
+        }
+
+        const winrate = summary.winrate;
+        const totalPnlPct = summary.totalPnlPct;
+        const totalPnlUsd = summary.totalPnlUsd;
+        const profitFactor = summary.profitFactor;
+        const maxDrawdown = summary.maxDrawdown;
+        const annualizedReturn = summary.annualizedReturn;
+
+        const longs = closed.filter(t => t.direction === 'LONG');
+        const shorts = closed.filter(t => t.direction === 'SHORT');
+        const longWins = longs.filter(t => parseFloat(t.pnlPct) > 0).length;
+        const shortWins = shorts.filter(t => parseFloat(t.pnlPct) > 0).length;
+        const longWinrate = longs.length > 0 ? (longWins / longs.length * 100) : 0;
+        const shortWinrate = shorts.length > 0 ? (shortWins / shorts.length * 100) : 0;
+        const longPnl = longs.reduce((s, t) => s + parseFloat(t.pnlPct), 0);
+        const shortPnl = shorts.reduce((s, t) => s + parseFloat(t.pnlPct), 0);
+
+        const stopLossByDirection = {
+            LONG: closed.filter(t => t.direction === 'LONG' && t.reason === 'Stop Loss').length,
+            SHORT: closed.filter(t => t.direction === 'SHORT' && t.reason === 'Stop Loss').length
+        };
+        const totalByDirection = {
+            LONG: longs.length,
+            SHORT: shorts.length
+        };
+        const stopLossRate = {
+            LONG: totalByDirection.LONG > 0 ? (stopLossByDirection.LONG / totalByDirection.LONG * 100) : 0,
+            SHORT: totalByDirection.SHORT > 0 ? (stopLossByDirection.SHORT / totalByDirection.SHORT * 100) : 0
+        };
+
+        const reasons = {};
+        closed.forEach(t => {
+            const r = t.reason || 'Desconhecido';
+            reasons[r] = (reasons[r] || 0) + 1;
+        });
+
+        const monthly = {};
+        closed.forEach(t => {
+            const month = new Date(t.entryTime).toISOString().slice(0, 7);
+            if (!monthly[month]) monthly[month] = { wins: 0, losses: 0, pnl: 0, count: 0 };
+            const pnl = parseFloat(t.pnlPct);
+            monthly[month].pnl += pnl;
+            monthly[month].count++;
+            if (pnl > 0) monthly[month].wins++;
+            else monthly[month].losses++;
+        });
+        const monthlyData = Object.entries(monthly).map(([month, data]) => ({
+            month,
+            pnl: data.pnl,
+            count: data.count,
+            winrate: data.count > 0 ? (data.wins / data.count * 100) : 0
+        })).sort((a, b) => a.month.localeCompare(b.month));
+
+        const durations = closed.map(t => parseFloat(t.durationHours)).filter(d => d > 0);
+        const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+        const maxDuration = durations.length > 0 ? Math.max(...durations) : 0;
+        const minDuration = durations.length > 0 ? Math.min(...durations) : 0;
+
+        const blockStats = summary.blockStats || {};
+        const totalBlocks = Object.values(blockStats).reduce((a, b) => a + b, 0) || 1;
+        const filterEffectiveness = Object.entries(blockStats)
+            .map(([filter, count]) => ({ filter, count, pct: (count / totalBlocks * 100) }))
+            .sort((a, b) => b.count - a.count);
+
+        const pnlValues = closed.map(t => parseFloat(t.pnlPct));
+        const avgPnl = pnlValues.reduce((a, b) => a + b, 0) / pnlValues.length;
+        const variance = pnlValues.reduce((s, v) => s + (v - avgPnl) ** 2, 0) / pnlValues.length;
+        const stdDev = Math.sqrt(variance);
+        const sharpe = stdDev > 0 ? avgPnl / stdDev : 0;
+        const calmar = maxDrawdown > 0 ? annualizedReturn / maxDrawdown : 0;
+
+        const p = params || {};
+
+        // HTML Report
+        const reportHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Relatório de Performance - ${symbol}</title>
+        <style>
+            body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; padding: 30px; color: #2d3436; }
+            .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            h1 { color: #2d3436; border-bottom: 3px solid #7c3aed; padding-bottom: 10px; }
+            h2 { color: #2d3436; margin-top: 30px; border-left: 4px solid #7c3aed; padding-left: 15px; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 15px; margin: 20px 0; }
+            .card { background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e9ecef; }
+            .card .label { font-size: 12px; color: #6c757d; text-transform: uppercase; }
+            .card .value { font-size: 24px; font-weight: 700; }
+            .params-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 10px; background: #f1f2f6; padding: 15px; border-radius: 10px; margin: 15px 0; }
+            .params-grid .item { background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #dfe6e9; }
+            .params-grid .item .label { font-size: 11px; color: #6c757d; }
+            .params-grid .item .value { font-size: 14px; font-weight: 600; }
+            .positive { color: #00b894; }
+            .negative { color: #e17055; }
+            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+            th, td { padding: 10px; border-bottom: 1px solid #e9ecef; text-align: left; }
+            th { background: #f1f2f6; }
+            .chart-container { height: 300px; margin: 20px 0; }
+            .tag { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #dfe6e9; font-size: 12px; margin: 2px; }
+            .tag.pass { background: #d4edda; color: #155724; }
+            .tag.block { background: #f8d7da; color: #721c24; }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"><\/script>
+        </head>
+        <body>
+        <div class="container">
+            <h1>📊 Relatório de Performance — ${symbol}</h1>
+            <p><strong>Período:</strong> Últimos ${days} dias (${new Date(Date.now() - days*24*60*60*1000).toLocaleDateString('pt-BR')} a ${new Date().toLocaleDateString('pt-BR')})</p>
+            <p><strong>Trades fechados:</strong> ${closed.length}</p>
+
+            <h2>⚙️ Parâmetros do Backtest</h2>
+            <div class="params-grid">
+                <div class="item"><div class="label">Score mínimo LONG</div><div class="value">${p.scoreMin ?? '--'}</div></div>
+                <div class="item"><div class="label">Score máximo SHORT</div><div class="value">${p.scoreMaxShort ?? '--'}</div></div>
+                <div class="item"><div class="label">ADX mínimo</div><div class="value">${p.adxMin ?? '--'}</div></div>
+                <div class="item"><div class="label">R:R mínimo</div><div class="value">${p.rrMin ?? '--'}</div></div>
+                <div class="item"><div class="label">Retest dist (ATR)</div><div class="value">${p.retestDistPct ?? '--'}</div></div>
+                <div class="item"><div class="label">Dias</div><div class="value">${days}</div></div>
+                <div class="item"><div class="label">Tempo máx. aberto (h)</div><div class="value">${p.maxHoldHours ?? '--'}</div></div>
+                <div class="item"><div class="label">Stop LONG</div><div class="value">${p.stopLong ?? '--'}</div></div>
+                <div class="item"><div class="label">Stop SHORT</div><div class="value">${p.stopShort ?? '--'}</div></div>
+                <div class="item"><div class="label">TP1 LONG</div><div class="value">${p.tp1Long ?? '--'}</div></div>
+                <div class="item"><div class="label">TP1 SHORT</div><div class="value">${p.tp1Short ?? '--'}</div></div>
+                <div class="item"><div class="label">TP2 (ATR)</div><div class="value">${p.tp2Dist ?? '--'}</div></div>
+                <div class="item"><div class="label">Trail LONG</div><div class="value">${p.trailLong ?? '--'}</div></div>
+                <div class="item"><div class="label">Trail SHORT</div><div class="value">${p.trailShort ?? '--'}</div></div>
+                <div class="item"><div class="label">TP1 %</div><div class="value">${p.tp1Pct !== undefined ? (p.tp1Pct*100).toFixed(0)+'%' : '--'}</div></div>
+                <div class="item"><div class="label">TP2 %</div><div class="value">${p.tp2Pct !== undefined ? (p.tp2Pct*100).toFixed(0)+'%' : '--'}</div></div>
+                <div class="item"><div class="label">Runner %</div><div class="value">${p.runnerPct !== undefined ? (p.runnerPct*100).toFixed(0)+'%' : '--'}</div></div>
+            </div>
+
+            <div class="grid">
+                <div class="card"><div class="label">Winrate</div><div class="value ${winrate >= 50 ? 'positive' : 'negative'}">${winrate.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">P&L %</div><div class="value ${totalPnlPct >= 0 ? 'positive' : 'negative'}">${(totalPnlPct >= 0 ? '+' : '')}${totalPnlPct.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">P&L (USD)</div><div class="value ${totalPnlUsd >= 0 ? 'positive' : 'negative'}">${(totalPnlUsd >= 0 ? '+' : '')}$${totalPnlUsd.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Profit Factor</div><div class="value">${profitFactor.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Max Drawdown</div><div class="value negative">${maxDrawdown.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">Retorno Anualizado</div><div class="value ${annualizedReturn >= 0 ? 'positive' : 'negative'}">${(annualizedReturn >= 0 ? '+' : '')}${annualizedReturn.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">Sharpe Ratio</div><div class="value">${sharpe.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Calmar Ratio</div><div class="value">${calmar.toFixed(2)}</div></div>
+            </div>
+
+            <h2>📈 Distribuição por Direção</h2>
+            <div class="grid">
+                <div class="card"><div class="label">Longs</div><div class="value">${longs.length}</div><div>Winrate: ${longWinrate.toFixed(2)}%</div><div>P&L: ${longPnl.toFixed(2)}%</div></div>
+                <div class="card"><div class="label">Shorts</div><div class="value">${shorts.length}</div><div>Winrate: ${shortWinrate.toFixed(2)}%</div><div>P&L: ${shortPnl.toFixed(2)}%</div></div>
+            </div>
+
+            <h2>🛑 Stop Loss por Direção</h2>
+            <div class="grid">
+                <div class="card"><div class="label">LONG Stop Loss</div><div class="value">${stopLossByDirection.LONG}</div><div>Taxa: ${stopLossRate.LONG.toFixed(1)}%</div></div>
+                <div class="card"><div class="label">SHORT Stop Loss</div><div class="value">${stopLossByDirection.SHORT}</div><div>Taxa: ${stopLossRate.SHORT.toFixed(1)}%</div></div>
+            </div>
+
+            <h2>🕒 Distribuição de Duração</h2>
+            <div class="grid">
+                <div class="card"><div class="label">Média (h)</div><div class="value">${avgDuration.toFixed(1)}</div></div>
+                <div class="card"><div class="label">Mínima (h)</div><div class="value">${minDuration.toFixed(1)}</div></div>
+                <div class="card"><div class="label">Máxima (h)</div><div class="value">${maxDuration.toFixed(1)}</div></div>
+            </div>
+
+            <h2>📊 Performance Mensal</h2>
+            <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
+            <table>
+                <tr><th>Mês</th><th>Trades</th><th>Winrate</th><th>P&L %</th></tr>
+                ${monthlyData.map(m => `<tr><td>${m.month}</td><td>${m.count}</td><td>${m.winrate.toFixed(1)}%</td><td class="${m.pnl >= 0 ? 'positive' : 'negative'}">${(m.pnl >= 0 ? '+' : '')}${m.pnl.toFixed(2)}%</td></tr>`).join('')}
+            </table>
+
+            <h2>🔍 Motivos de Saída</h2>
+            <div>
+                ${Object.entries(reasons).map(([reason, count]) => `<span class="tag">${reason}: ${count}</span>`).join(' ')}
+            </div>
+
+            <h2>🧩 Eficácia dos Filtros (Bloqueios)</h2>
+            <div>
+                ${filterEffectiveness.map(f => `<span class="tag ${f.filter === 'passou_filtros' ? 'pass' : 'block'}">${f.filter}: ${f.count} (${f.pct.toFixed(1)}%)</span>`).join(' ')}
+            </div>
+
+            <h2>📋 Tabela de Trades</h2>
+            <table>
+                <tr><th>Entrada</th><th>Dir</th><th>Preço</th><th>Stop</th><th>TP1</th><th>Saída</th><th>Motivo</th><th>P&L %</th><th>Duração (h)</th></tr>
+                ${closed.map(t => `
+                    <tr>
+                        <td>${new Date(t.entryTime).toLocaleDateString('pt-BR')}</td>
+                        <td>${t.direction}</td>
+                        <td>$${t.entryPrice.toFixed(2)}</td>
+                        <td>$${t.stopLoss?.toFixed(2) || '--'}</td>
+                        <td>$${t.takeProfit1?.toFixed(2) || '--'}</td>
+                        <td>$${t.exitPrice?.toFixed(2) || '--'}</td>
+                        <td>${t.reason || '--'}</td>
+                        <td class="${parseFloat(t.pnlPct) >= 0 ? 'positive' : 'negative'}">${(parseFloat(t.pnlPct) >= 0 ? '+' : '')}${t.pnlPct}%</td>
+                        <td>${t.durationHours || '--'}</td>
+                    </tr>
+                `).join('')}
+            </table>
+
+            <p><small>Relatório gerado em ${new Date().toLocaleString('pt-BR')}</small></p>
+        </div>
+        <script>
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ${JSON.stringify(monthlyData.map(m => m.month))},
+                    datasets: [{
+                        label: 'P&L %',
+                        data: ${JSON.stringify(monthlyData.map(m => m.pnl))},
+                        backgroundColor: monthlyData.map(m => m.pnl >= 0 ? 'rgba(0,184,148,0.6)' : 'rgba(225,112,85,0.6)'),
+                        borderColor: monthlyData.map(m => m.pnl >= 0 ? '#00b894' : '#e17055'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { grid: { color: '#dfe6e9' } } }
+                }
+            });
+        <\/script>
+        </body>
+        </html>
+        `;
+
+        const blob = new Blob([reportHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Relatorio_${symbol}_${new Date().toISOString().slice(0,10)}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // CSV Export
+        const csvRows = [
+            ['Entrada', 'Direção', 'Preço Entrada', 'Stop', 'TP1', 'Saída', 'Motivo', 'P&L %', 'P&L USD', 'Duração (h)']
+        ];
+        closed.forEach(t => {
+            csvRows.push([
+                t.entryTime,
+                t.direction,
+                t.entryPrice.toFixed(2),
+                t.stopLoss?.toFixed(2) || '',
+                t.takeProfit1?.toFixed(2) || '',
+                t.exitPrice?.toFixed(2) || '',
+                t.reason || '',
+                t.pnlPct,
+                t.pnlUsd || '',
+                t.durationHours || ''
+            ]);
+        });
+        const csvContent = csvRows.map(row => row.join(',')).join('\n');
+        const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+        const csvUrl = URL.createObjectURL(csvBlob);
+        const aCsv = document.createElement('a');
+        aCsv.href = csvUrl;
+        aCsv.download = `Trades_${symbol}_${new Date().toISOString().slice(0,10)}.csv`;
+        aCsv.click();
+        URL.revokeObjectURL(csvUrl);
+
+        alert(`Relatório HTML e CSV baixados com sucesso!\nTrades: ${closed.length}`);
     }
 
     // ===== UI =====
@@ -1576,7 +1841,7 @@
         }
     });
 
-    // ----- Botões auxiliares -----
+    // Botões auxiliares
     document.getElementById('exportBtn').addEventListener('click', exportData);
     document.getElementById('fetchExportBtn').addEventListener('click', fetchAndExport);
 
@@ -1636,7 +1901,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.2 – correções aplicadas.');
+    console.log('Backtest Engine v3.4.2 – carregado com sucesso.');
 </script>
 </body>
 </html>
