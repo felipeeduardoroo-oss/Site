@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.4.3)</title>
+    <title>Backtest Engine — SMC + MTF (v3.4.4)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.3)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.4)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -127,13 +127,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.3:</strong> Chandelier Exit (trailing por pico de lucro) e Liquidity Sweep (caçada de liquidez). Mantidas todas as funções da v3.4.2.
+        <strong>v3.4.4:</strong> Correções: Profit Factor real (lucro bruto / perda bruta), escopo MVRV corrigido.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.3 – COMPLETO
+    // BACKTEST ENGINE v3.4.4 – COMPLETO E CORRIGIDO
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR -----
@@ -918,18 +918,6 @@
             state.oiDeltaHistory.push(state.oiDelta);
             if (state.oiDeltaHistory.length > 100) state.oiDeltaHistory.shift();
 
-            const mvrvAtTime = findMostRecent(mvrvHist, m => m.time <= candle.time);
-            state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
-            state.macroBlackout = false;
-
-            if (state.mvrv !== null) {
-                if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
-                    blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
-                } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
-                    blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
-                }
-            }
-
             state.mtfConfluence = getMTFAlignmentAtTime(candle.time);
 
             if (state.candles1H.length >= 20) {
@@ -1010,20 +998,34 @@
             let direction = scoreData.direction;
             let blockReason = scoreData.blockReason;
 
+            // Recalcula a direção com base no score já corrigido
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // BOS histórico + corpo forte
-            const prevClose = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2].close : state.price;
+            // ===== MVRV MOVIDO PARA CÁ (depois das declarações) =====
+            const mvrvAtTime = findMostRecent(mvrvHist, m => m.time <= candle.time);
+            state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
+            state.macroBlackout = false;
+
+            if (state.mvrv !== null) {
+                if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
+                    blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
+                } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
+                    blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
+                }
+            }
+
+            // BOS em tempo real
+            const prevCandle = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2] : null;
             const lastSwingHigh = state.swingHighs.length > 0 ? state.swingHighs[state.swingHighs.length - 1] : null;
             const lastSwingLow = state.swingLows.length > 0 ? state.swingLows[state.swingLows.length - 1] : null;
-            const bodyCurrent = Math.abs(candle.close - candle.open);
-            const rangeCurrent = candle.high - candle.low;
-            const isStrongBody = rangeCurrent > 0 && (bodyCurrent / rangeCurrent) > 0.5;
+            const refHigh = lastSwingHigh || (prevCandle ? prevCandle.high : null);
+            const refLow = lastSwingLow || (prevCandle ? prevCandle.low : null);
             
-            const bosBull = primaryDirection === 'LONG' && lastSwingHigh !== null && prevClose <= lastSwingHigh && candle.close > lastSwingHigh && isStrongBody;
-            const bosBear = primaryDirection === 'SHORT' && lastSwingLow !== null && prevClose >= lastSwingLow && candle.close < lastSwingLow && isStrongBody;
+            const bosBull = primaryDirection === 'LONG' && refHigh !== null && candle.close > refHigh;
+            const bosBear = primaryDirection === 'SHORT' && refLow !== null && candle.close < refLow;
             state.currentBOS = (bosBull || bosBear) ? 'BOS' : 'NEUTRAL';
 
+            // Filtros adicionais (DI, VWAP, HTF, etc.)
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -1104,7 +1106,7 @@
                             if (equity > highWaterMark) highWaterMark = equity;
                             position.sizeRemaining -= closeSize;
                             position.trailingStop = Math.max(position.entryPrice, position.entryPrice + state.atr_1H * volatilityFactor * trailLong);
-                            position.maxProfitPrice = high; // Inicializa o pico
+                            position.maxProfitPrice = high;
                         }
                         // Trailing (Chandelier Exit)
                         else if (position.partialTaken) {
@@ -1190,7 +1192,7 @@
                 }
             }
 
-            // ===== ENTRADA (com Liquidity Sweep) =====
+            // ----- ENTRADA (com Liquidity Sweep) -----
             if (!position && !blockReason && primaryDirection) {
                 const atr = state.atr_1H || (state.price * 0.02);
                 let smcSetup = false, sweepSetup = false, retestConfirmed = false, brokenLevel = null;
@@ -1225,7 +1227,7 @@
                     if (retestConfirmed) smcSetup = true;
                 }
 
-                // Liquidity Sweep (novo setup)
+                // Liquidity Sweep
                 if (requireSweep) {
                     const lastSwingHigh = state.swingHighs.length > 0 ? state.swingHighs[state.swingHighs.length - 1] : null;
                     const lastSwingLow = state.swingLows.length > 0 ? state.swingLows[state.swingLows.length - 1] : null;
@@ -1237,7 +1239,7 @@
                         if (wickAbove && closeBelow && strongBearBody) {
                             sweepSetup = true;
                             brokenLevel = lastSwingHigh;
-                            retestConfirmed = true; // Sweep já confirma retest por definição
+                            retestConfirmed = true;
                         }
                     } else if (primaryDirection === 'LONG' && lastSwingLow !== null) {
                         const wickBelow = candle.low < lastSwingLow;
@@ -1257,7 +1259,6 @@
                 const retestPassed = retestRequired ? retestConfirmed : true;
                 const structureOk = (bosPassed && retestPassed) || (sweepSetup && retestPassed);
 
-                // Volume no breakout (1.3x) – aplica apenas se for BOS, não se for Sweep
                 const volumeAvg = state.candles1H.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
                 const volumeOk = smcSetup ? state.candles1H[state.candles1H.length - 1].volume >= volumeAvg * 1.3 : true;
                 const closeBreakOk = (primaryDirection === 'LONG' && candle.close > brokenLevel) ||
@@ -1384,7 +1385,7 @@
             position = null;
         }
 
-        // ===== ESTATÍSTICAS =====
+        // ===== ESTATÍSTICAS (com Profit Factor corrigido) =====
         const closedTrades = trades.filter(t => t.exitTime !== null && t.pnlPct !== null);
         const totalTrades = closedTrades.length;
         const wins = closedTrades.filter(t => parseFloat(t.pnlPct) > 0).length;
@@ -1392,9 +1393,15 @@
         const winrate = totalTrades > 0 ? (wins / totalTrades * 100) : 0;
         const totalPnlPct = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnlPct), 0);
         const totalPnlUsd = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnlUsd || 0), 0);
-        const avgWin = wins > 0 ? closedTrades.filter(t => parseFloat(t.pnlPct) > 0).reduce((s, t) => s + parseFloat(t.pnlPct), 0) / wins : 0;
-        const avgLoss = losses > 0 ? closedTrades.filter(t => parseFloat(t.pnlPct) < 0).reduce((s, t) => s + parseFloat(t.pnlPct), 0) / losses : 0;
-        const profitFactor = avgLoss !== 0 ? (avgWin / Math.abs(avgLoss)) : 0;
+
+        // PROFIT FACTOR CORRIGIDO (lucro bruto / perda bruta)
+        const grossProfit = closedTrades.filter(t => parseFloat(t.pnlPct) > 0).reduce((s, t) => s + parseFloat(t.pnlPct), 0);
+        const grossLoss = Math.abs(closedTrades.filter(t => parseFloat(t.pnlPct) < 0).reduce((s, t) => s + parseFloat(t.pnlPct), 0));
+        const profitFactor = grossLoss !== 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? Infinity : 0);
+
+        const avgWin = wins > 0 ? grossProfit / wins : 0;
+        const avgLoss = losses > 0 ? grossLoss / losses : 0;
+
         const maxDrawdown = highWaterMark > 0 ? ((highWaterMark - equity) / highWaterMark * 100) : 0;
         const annualizedReturn = totalPnlPct !== 0 && !isNaN(totalPnlPct) ? (Math.pow(1 + totalPnlPct / 100, 365 / days) - 1) * 100 : 0;
         const equityCurve = [10000];
@@ -1429,7 +1436,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO =====
+    // ===== GERAR RELATÓRIO (com Profit Factor corrigido) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1575,7 +1582,7 @@
                 <div class="card"><div class="label">Winrate</div><div class="value ${winrate >= 50 ? 'positive' : 'negative'}">${winrate.toFixed(2)}%</div></div>
                 <div class="card"><div class="label">P&L %</div><div class="value ${totalPnlPct >= 0 ? 'positive' : 'negative'}">${(totalPnlPct >= 0 ? '+' : '')}${totalPnlPct.toFixed(2)}%</div></div>
                 <div class="card"><div class="label">P&L (USD)</div><div class="value ${totalPnlUsd >= 0 ? 'positive' : 'negative'}">${(totalPnlUsd >= 0 ? '+' : '')}$${totalPnlUsd.toFixed(2)}</div></div>
-                <div class="card"><div class="label">Profit Factor</div><div class="value">${profitFactor.toFixed(2)}</div></div>
+                <div class="card"><div class="label">Profit Factor</div><div class="value ${profitFactor >= 1 ? 'positive' : 'negative'}">${profitFactor.toFixed(2)}</div></div>
                 <div class="card"><div class="label">Max Drawdown</div><div class="value negative">${maxDrawdown.toFixed(2)}%</div></div>
                 <div class="card"><div class="label">Retorno Anualizado</div><div class="value ${annualizedReturn >= 0 ? 'positive' : 'negative'}">${(annualizedReturn >= 0 ? '+' : '')}${annualizedReturn.toFixed(2)}%</div></div>
                 <div class="card"><div class="label">Sharpe Ratio</div><div class="value">${sharpe.toFixed(2)}</div></div>
@@ -1766,6 +1773,7 @@
             document.getElementById('st-pnlusd').textContent = (summary.totalPnlUsd >= 0 ? '+' : '') + '$' + summary.totalPnlUsd.toFixed(2);
             document.getElementById('st-pnlusd').className = 'value ' + (summary.totalPnlUsd >= 0 ? 'positive' : 'negative');
             document.getElementById('st-pf').textContent = summary.profitFactor.toFixed(2);
+            document.getElementById('st-pf').className = 'value ' + (summary.profitFactor >= 1 ? 'positive' : 'negative');
             document.getElementById('st-dd').textContent = summary.maxDrawdown.toFixed(2) + '%';
             document.getElementById('st-dd').className = 'value negative';
             document.getElementById('st-ann').textContent = summary.annualizedReturn.toFixed(2) + '%';
@@ -1909,7 +1917,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.3 – Chandelier Exit + Liquidity Sweep carregado.');
+    console.log('Backtest Engine v3.4.4 – Profit Factor real e MVRV corrigido.');
 </script>
 </body>
 </html>
