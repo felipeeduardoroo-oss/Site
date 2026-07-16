@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.4.6)</title>
+    <title>Backtest Engine — SMC + MTF (v3.4.8)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.6)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.8)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -88,6 +88,17 @@
             <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="requireSweep"> Liquidity Sweep</label>
         </div>
 
+        <!-- Parâmetros LONG -->
+        <div><label>MVRV máx LONG</label><input type="number" id="mvrvMaxLong" value="3.0" min="1.0" max="10" step="0.1"></div>
+        <div><label>HTF Bullish Velas</label><input type="number" id="htfBullishVelas" value="3" min="1" max="20" step="1"></div>
+        <div><label>DI diff min LONG</label><input type="number" id="diDiffMinLong" value="0" min="0" max="20" step="1"></div>
+
+        <!-- Parâmetros SHORT -->
+        <div><label>MVRV min SHORT</label><input type="number" id="mvrvMinShort" value="1.8" min="0.1" max="10" step="0.1"></div>
+        <div><label>HTF Bearish Velas</label><input type="number" id="htfBearishVelas" value="6" min="1" max="20" step="1"></div>
+        <div><label>DI diff min SHORT</label><input type="number" id="diDiffMinShort" value="5" min="0" max="20" step="1"></div>
+
+        <!-- Parâmetros de gestão -->
         <div><label>Stop LONG (ATR)</label><input type="number" id="stopLong" value="1.5" min="0.5" max="5" step="0.1"></div>
         <div><label>Stop SHORT (ATR)</label><input type="number" id="stopShort" value="2.0" min="0.5" max="5" step="0.1"></div>
         <div><label>TP1 LONG (ATR)</label><input type="number" id="tp1Long" value="2.0" min="0.5" max="10" step="0.1"></div>
@@ -127,16 +138,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.6:</strong> SHORTs com condições mais rigorosas: MVRV ≥ 1.8, HTF 6 velas 4H, DI- - DI+ ≥ 5.
+        <strong>v3.4.8:</strong> Parâmetros ajustáveis para LONG e SHORT: MVRV, HTF velas, DI diff.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.6 – SHORTS COM CONDIÇÕES MAIS RIGOROSAS
+    // BACKTEST ENGINE v3.4.8 – PARÂMETROS AJUSTÁVEIS LONG/SHORT
     // ============================================================
 
-    // ----- FUNÇÕES DO INDICADOR -----
+    // ----- FUNÇÕES DO INDICADOR (mesmo código da v3.4.6) -----
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -294,7 +305,7 @@
         }
     };
 
-    // HTF com persistência (3 velas para BULLISH, 6 para BEARISH)
+    // HTF com persistência (genérico, usado apenas para bias base)
     const detectHTFStructure = (candles4H) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
@@ -307,8 +318,8 @@
         const allBelow6 = last6.every((c, i) => c < ema200Last6[i]);
         const allAbove = last3.every((c, i) => c > ema200Last3[i]);
         let bias = 'NEUTRAL';
-        if (allBelow6) bias = 'BEARISH';   // 6 velas para BEARISH (mais rígido)
-        else if (allAbove) bias = 'BULLISH';  // 3 velas para BULLISH (mantido)
+        if (allBelow6) bias = 'BEARISH';
+        else if (allAbove) bias = 'BULLISH';
         return { 
             bias, 
             lastSwingHigh: Math.max(...candles4H.map(c => c.high)), 
@@ -437,7 +448,7 @@
     let lastParams = null;
     let liveInterval = null;
 
-    // ----- FETCH (mesmo código anterior) -----
+    // ----- FETCH (código completo - mesmo da v3.4.6) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -659,7 +670,7 @@
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COMPLETO =====
+    // ===== BACKTEST COMPLETO (com parâmetros ajustáveis) =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -675,6 +686,12 @@
             zFundingMax = 1.5,
             zOiMax = 1.5,
             maxHoldHours = 72,
+            mvrvMaxLong = 3.0,
+            htfBullishVelas = 3,
+            diDiffMinLong = 0,
+            mvrvMinShort = 1.8,
+            htfBearishVelas = 6,
+            diDiffMinShort = 5,
             stopLong = 1.5,
             stopShort = 2.0,
             tp1Long = 2.0,
@@ -1007,7 +1024,7 @@
             let blockReason = scoreData.blockReason;
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // ===== MVRV (confirmacao positiva para SHORT) =====
+            // ===== MVRV (configurável via parâmetros) =====
             if (state.mvrv !== null) {
                 // Bloqueio existente (MVRV extremo)
                 if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
@@ -1015,27 +1032,47 @@
                 } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
                     blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
                 }
-                // NOVA EXIGÊNCIA: SHORT só se MVRV >= 1.8 (mercado esticado)
-                if (primaryDirection === 'SHORT' && !blockReason && state.mvrv < 1.8) {
-                    blockReason = 'MVRV < 1.8 (mercado não está esticado o suficiente para SHORT)';
+                // NOVA EXIGÊNCIA: LONG só se MVRV <= mvrvMaxLong
+                if (primaryDirection === 'LONG' && !blockReason && state.mvrv > mvrvMaxLong) {
+                    blockReason = `MVRV > ${mvrvMaxLong.toFixed(1)} (mercado muito esticado para LONG)`;
+                }
+                // NOVA EXIGÊNCIA: SHORT só se MVRV >= mvrvMinShort
+                if (primaryDirection === 'SHORT' && !blockReason && state.mvrv < mvrvMinShort) {
+                    blockReason = `MVRV < ${mvrvMinShort.toFixed(1)} (mercado não está esticado o suficiente para SHORT)`;
                 }
             }
 
-            // ===== HTF BEARISH MAIS RÍGIDO PARA SHORT (6 velas 4H) =====
-            if (primaryDirection === 'SHORT' && !blockReason && state.candles4H.length >= 6) {
-                const closes4H = state.candles4H.slice(-6).map(c => c.close);
+            // ===== HTF específico (configurável) =====
+            if (primaryDirection === 'LONG' && !blockReason && state.candles4H.length >= htfBullishVelas) {
+                const closes4H = state.candles4H.slice(-htfBullishVelas).map(c => c.close);
                 const ema2004H = calcEMA(state.candles4H.map(c => c.close), 200);
-                const ema200Last6 = ema2004H.slice(-6);
-                const allBelow = closes4H.every((c, i) => c < ema200Last6[i]);
-                if (!allBelow) {
-                    blockReason = 'HTF 4H bearish não confirmado (6 velas)';
+                const ema200LastN = ema2004H.slice(-htfBullishVelas);
+                const allAbove = closes4H.every((c, i) => c > ema200LastN[i]);
+                if (!allAbove) {
+                    blockReason = `HTF 4H bullish não confirmado (${htfBullishVelas} velas)`;
                 }
             }
 
-            // ===== DI MAIS FORTE PARA SHORT (diferença >= 5) =====
+            if (primaryDirection === 'SHORT' && !blockReason && state.candles4H.length >= htfBearishVelas) {
+                const closes4H = state.candles4H.slice(-htfBearishVelas).map(c => c.close);
+                const ema2004H = calcEMA(state.candles4H.map(c => c.close), 200);
+                const ema200LastN = ema2004H.slice(-htfBearishVelas);
+                const allBelow = closes4H.every((c, i) => c < ema200LastN[i]);
+                if (!allBelow) {
+                    blockReason = `HTF 4H bearish não confirmado (${htfBearishVelas} velas)`;
+                }
+            }
+
+            // ===== DI diff (configurável) =====
+            if (primaryDirection === 'LONG' && !blockReason) {
+                if ((state.adx.plusDI - state.adx.minusDI) < diDiffMinLong) {
+                    blockReason = `Momentum bullish insuficiente (DI+ - DI- < ${diDiffMinLong})`;
+                }
+            }
+
             if (primaryDirection === 'SHORT' && !blockReason) {
-                if ((state.adx.minusDI - state.adx.plusDI) < 5) {
-                    blockReason = 'Momentum bearish insuficiente (DI- - DI+ < 5)';
+                if ((state.adx.minusDI - state.adx.plusDI) < diDiffMinShort) {
+                    blockReason = `Momentum bearish insuficiente (DI- - DI+ < ${diDiffMinShort})`;
                 }
             }
 
@@ -1066,8 +1103,8 @@
             if (adxValNow < adxMin && !blockReason) blockReason = `ADX < ${adxMin}`;
             if (state.macroBlackout && !blockReason) blockReason = 'Macro blackout';
 
-            // DI (LONG mantido igual)
-            if (primaryDirection === 'LONG' && state.adx.plusDI < state.adx.minusDI) {
+            // DI (LONG mantido com diff configurável)
+            if (primaryDirection === 'LONG' && (state.adx.plusDI - state.adx.minusDI) < 0 && !blockReason) {
                 blockReason = 'DI- > DI+ (Força Bearish)';
             }
 
@@ -1449,7 +1486,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO =====
+    // ===== GERAR RELATÓRIO (com os novos parâmetros) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1534,7 +1571,7 @@
 
         const p = params || {};
 
-        // HTML Report (mesmo código)
+        // HTML Report
         const reportHTML = `
         <!DOCTYPE html>
         <html>
@@ -1579,6 +1616,12 @@
                 <div class="item"><div class="label">Retest dist (ATR)</div><div class="value">${p.retestDistPct ?? '--'}</div></div>
                 <div class="item"><div class="label">Dias</div><div class="value">${days}</div></div>
                 <div class="item"><div class="label">Tempo máx. aberto (h)</div><div class="value">${p.maxHoldHours ?? '--'}</div></div>
+                <div class="item"><div class="label">MVRV máx LONG</div><div class="value">${p.mvrvMaxLong ?? '--'}</div></div>
+                <div class="item"><div class="label">HTF Bullish Velas</div><div class="value">${p.htfBullishVelas ?? '--'}</div></div>
+                <div class="item"><div class="label">DI diff min LONG</div><div class="value">${p.diDiffMinLong ?? '--'}</div></div>
+                <div class="item"><div class="label">MVRV min SHORT</div><div class="value">${p.mvrvMinShort ?? '--'}</div></div>
+                <div class="item"><div class="label">HTF Bearish Velas</div><div class="value">${p.htfBearishVelas ?? '--'}</div></div>
+                <div class="item"><div class="label">DI diff min SHORT</div><div class="value">${p.diDiffMinShort ?? '--'}</div></div>
                 <div class="item"><div class="label">Stop LONG</div><div class="value">${p.stopLong ?? '--'}</div></div>
                 <div class="item"><div class="label">Stop SHORT</div><div class="value">${p.stopShort ?? '--'}</div></div>
                 <div class="item"><div class="label">TP1 LONG</div><div class="value">${p.tp1Long ?? '--'}</div></div>
@@ -1754,6 +1797,12 @@
             zFundingMax: 1.5,
             zOiMax: 1.5,
             maxHoldHours: getParam('maxHoldHours'),
+            mvrvMaxLong: getParam('mvrvMaxLong'),
+            htfBullishVelas: getParam('htfBullishVelas'),
+            diDiffMinLong: getParam('diDiffMinLong'),
+            mvrvMinShort: getParam('mvrvMinShort'),
+            htfBearishVelas: getParam('htfBearishVelas'),
+            diDiffMinShort: getParam('diDiffMinShort'),
             stopLong: getParam('stopLong'),
             stopShort: getParam('stopShort'),
             tp1Long: getParam('tp1Long'),
@@ -1930,7 +1979,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.6 – SHORTs com condições mais rigorosas carregado.');
+    console.log('Backtest Engine v3.4.8 – parâmetros ajustáveis LONG/SHORT carregado.');
 </script>
 </body>
 </html>
