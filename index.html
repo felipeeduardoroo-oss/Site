@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.5.0)</title>
+    <title>Backtest Engine — SMC + MTF (v3.5.1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.0)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.1)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -89,12 +89,11 @@
         </div>
 
         <!-- Parâmetros LONG -->
-        <div><label>MVRV máx LONG</label><input type="number" id="mvrvMaxLong" value="3.0" min="1.0" max="10" step="0.1"></div>
         <div><label>HTF Bullish Velas</label><input type="number" id="htfBullishVelas" value="3" min="1" max="20" step="1"></div>
         <div><label>DI diff min LONG</label><input type="number" id="diDiffMinLong" value="0" min="0" max="20" step="1"></div>
 
         <!-- Parâmetros SHORT -->
-        <div><label>MVRV min SHORT</label><input type="number" id="mvrvMinShort" value="1.8" min="0.1" max="10" step="0.1"></div>
+        <div><label>MVRV drop % max SHORT</label><input type="number" id="mvrvDropPercent" value="15" min="1" max="100" step="1">%</div>
         <div><label>HTF Bearish Velas</label><input type="number" id="htfBearishVelas" value="6" min="1" max="20" step="1"></div>
         <div><label>DI diff min SHORT</label><input type="number" id="diDiffMinShort" value="5" min="0" max="20" step="1"></div>
 
@@ -138,16 +137,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.5.0:</strong> Adicionado log de diagnóstico do MVRV no console para calibragem precisa dos thresholds.
+        <strong>v3.5.1:</strong> MVRV baseado em queda do pico de 90 dias (parâmetro ajustável).
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.5.0 – COM LOG MVRV
+    // BACKTEST ENGINE v3.5.1 – MVRV COM QUEDA DO PICO (90d)
     // ============================================================
 
-    // ----- FUNÇÕES DO INDICADOR -----
+    // ----- FUNÇÕES DO INDICADOR (mesmo código) -----
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -305,7 +304,7 @@
         }
     };
 
-    // HTF com persistência configurável (UNIFICADO)
+    // HTF com persistência configurável
     const detectHTFStructure = (candles4H, bullishVelas = 3, bearishVelas = 6) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
@@ -433,7 +432,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-        // ----- FIM DAS FUNÇÕES DO INDICADOR -----
+    // ----- FIM DAS FUNÇÕES DO INDICADOR -----
 
     // ----- VARIÁVEIS GLOBAIS -----
     let cachedData = {
@@ -572,7 +571,6 @@
         }
         return null;
     };
-
     // ----- IMPORTAÇÃO/EXPORTAÇÃO -----
     async function fetchRawData(symbol = 'BTCUSDT') {
         const days = 1000;
@@ -685,10 +683,9 @@
             zFundingMax = 1.5,
             zOiMax = 1.5,
             maxHoldHours = 72,
-            mvrvMaxLong = 3.0,
             htfBullishVelas = 3,
             diDiffMinLong = 0,
-            mvrvMinShort = 1.8,
+            mvrvDropPercent = 0.15,
             htfBearishVelas = 6,
             diDiffMinShort = 5,
             stopLong = 1.5,
@@ -780,6 +777,7 @@
             mtfConfluence: null, adx: 0, divergence: null, divergence4H: null,
             volumeAnomaly: null, macroBlackout: false, vwap: 0, price: 0,
             fundingRate: 0, oiDelta: 0, mvrv: null,
+            mvrvHistory: [], // NOVO: histórico para queda do pico
             fundingHistory: [], oiDeltaHistory: [], bandwidthHistory: [],
             adxRolling: [],
             volatilityFactor: 1.0
@@ -951,6 +949,12 @@
             state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
             state.macroBlackout = false;
 
+            // Atualiza histórico MVRV (90 dias)
+            if (state.mvrv !== null) {
+                state.mvrvHistory.push(state.mvrv);
+                if (state.mvrvHistory.length > 90) state.mvrvHistory.shift();
+            }
+
             state.mtfConfluence = getMTFAlignmentAtTime(candle.time);
 
             if (state.candles1H.length >= 20) {
@@ -1026,32 +1030,23 @@
             };
             const liqMap = { [symbol]: { longs: 0, shorts: 0 } };
 
-            // ===== SCORE E DECLARAÇÕES (ANTES DO MVRV) =====
+            // ===== SCORE E DECLARAÇÕES =====
             const scoreData = computeScore(symbol, simAssets, liqMap, adxMin);
             let score = scoreData.score;
             let direction = scoreData.direction;
             let blockReason = scoreData.blockReason;
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // ===== MVRV (configurável via parâmetros) =====
-            if (state.mvrv !== null) {
-                // Bloqueio extremo (mantido)
-                if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
-                    blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
-                } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
-                    blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
-                }
-                // Exigência LONG: MVRV <= mvrvMaxLong
-                if (primaryDirection === 'LONG' && !blockReason && state.mvrv > mvrvMaxLong) {
-                    blockReason = `MVRV > ${mvrvMaxLong.toFixed(1)} (mercado muito esticado para LONG)`;
-                }
-                // Exigência SHORT: MVRV >= mvrvMinShort
-                if (primaryDirection === 'SHORT' && !blockReason && state.mvrv < mvrvMinShort) {
-                    blockReason = `MVRV < ${mvrvMinShort.toFixed(1)} (mercado não está esticado o suficiente para SHORT)`;
+            // ===== NOVA LÓGICA MVRV (queda do pico de 90 dias) =====
+            if (state.mvrvHistory.length > 0 && primaryDirection === 'SHORT' && !blockReason) {
+                const mvrvPeak90d = Math.max(...state.mvrvHistory);
+                const mvrvDrop = mvrvPeak90d > 0 ? (mvrvPeak90d - state.mvrv) / mvrvPeak90d : 0;
+                if (mvrvDrop > mvrvDropPercent) {
+                    blockReason = `MVRV caiu ${(mvrvDrop*100).toFixed(1)}% do pico de 90d (limite ${(mvrvDropPercent*100).toFixed(0)}%)`;
                 }
             }
 
-            // ===== HTF UNIFICADO (já está no state.htfStructure.bias) =====
+            // ===== HTF UNIFICADO =====
             if (primaryDirection === 'LONG' && !blockReason && state.htfStructure.bias === 'BEARISH') {
                 blockReason = `HTF 4H Bearish (${htfBullishVelas} velas bullish necessárias)`;
             }
@@ -1099,7 +1094,6 @@
             if (adxValNow < adxMin && !blockReason) blockReason = `ADX < ${adxMin}`;
             if (state.macroBlackout && !blockReason) blockReason = 'Macro blackout';
 
-            // DI (LONG mantido com diff configurável)
             if (primaryDirection === 'LONG' && (state.adx.plusDI - state.adx.minusDI) < 0 && !blockReason) {
                 blockReason = 'DI- > DI+ (Força Bearish)';
             }
@@ -1477,7 +1471,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO =====
+    // ===== GERAR RELATÓRIO (com parâmetros atualizados) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1562,7 +1556,7 @@
 
         const p = params || {};
 
-        // HTML Report (mesmo código)
+        // HTML Report
         const reportHTML = `
         <!DOCTYPE html>
         <html>
@@ -1607,10 +1601,9 @@
                 <div class="item"><div class="label">Retest dist (ATR)</div><div class="value">${p.retestDistPct ?? '--'}</div></div>
                 <div class="item"><div class="label">Dias</div><div class="value">${days}</div></div>
                 <div class="item"><div class="label">Tempo máx. aberto (h)</div><div class="value">${p.maxHoldHours ?? '--'}</div></div>
-                <div class="item"><div class="label">MVRV máx LONG</div><div class="value">${p.mvrvMaxLong ?? '--'}</div></div>
+                <div class="item"><div class="label">MVRV drop % max SHORT</div><div class="value">${p.mvrvDropPercent !== undefined ? (p.mvrvDropPercent*100).toFixed(0)+'%' : '--'}</div></div>
                 <div class="item"><div class="label">HTF Bullish Velas</div><div class="value">${p.htfBullishVelas ?? '--'}</div></div>
                 <div class="item"><div class="label">DI diff min LONG</div><div class="value">${p.diDiffMinLong ?? '--'}</div></div>
-                <div class="item"><div class="label">MVRV min SHORT</div><div class="value">${p.mvrvMinShort ?? '--'}</div></div>
                 <div class="item"><div class="label">HTF Bearish Velas</div><div class="value">${p.htfBearishVelas ?? '--'}</div></div>
                 <div class="item"><div class="label">DI diff min SHORT</div><div class="value">${p.diDiffMinShort ?? '--'}</div></div>
                 <div class="item"><div class="label">Stop LONG</div><div class="value">${p.stopLong ?? '--'}</div></div>
@@ -1788,10 +1781,9 @@
             zFundingMax: 1.5,
             zOiMax: 1.5,
             maxHoldHours: getParam('maxHoldHours'),
-            mvrvMaxLong: getParam('mvrvMaxLong'),
             htfBullishVelas: getParam('htfBullishVelas'),
             diDiffMinLong: getParam('diDiffMinLong'),
-            mvrvMinShort: getParam('mvrvMinShort'),
+            mvrvDropPercent: getParam('mvrvDropPercent') / 100,
             htfBearishVelas: getParam('htfBearishVelas'),
             diDiffMinShort: getParam('diDiffMinShort'),
             stopLong: getParam('stopLong'),
@@ -1970,7 +1962,8 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.5.0 – com log MVRV carregado.');
+    console.log('Backtest Engine v3.5.1 – MVRV com queda do pico de 90d carregado.');
 </script>
 </body>
 </html>
+    
