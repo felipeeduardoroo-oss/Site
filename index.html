@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.4.9)</title>
+    <title>Backtest Engine — SMC + MTF (v3.5.0)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.9)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.0)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -138,13 +138,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.9:</strong> HTF unificado com parâmetros configuráveis. Filtros MVRV, HTF e DI diff ajustáveis para LONG e SHORT.
+        <strong>v3.5.0:</strong> Adicionado log de diagnóstico do MVRV no console para calibragem precisa dos thresholds.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.9 – HTF UNIFICADO E CONFIGURÁVEL
+    // BACKTEST ENGINE v3.5.0 – COM LOG MVRV
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR -----
@@ -433,7 +433,7 @@
         return { score, level, direction: finalDirection, reasons };
     };
 
-    // ----- FIM DAS FUNÇÕES DO INDICADOR -----
+        // ----- FIM DAS FUNÇÕES DO INDICADOR -----
 
     // ----- VARIÁVEIS GLOBAIS -----
     let cachedData = {
@@ -669,7 +669,7 @@
         return Promise.all(promises);
     }
 
-        // ===== BACKTEST COMPLETO =====
+    // ===== BACKTEST COMPLETO =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -717,6 +717,16 @@
         let fundingHist = cachedData.funding;
         let oiHist = cachedData.oi;
         let mvrvHist = cachedData.mvrv;
+
+        // ===== LOG DE DIAGNÓSTICO MVRV =====
+        if (mvrvHist.length > 0) {
+            const values = mvrvHist.map(m => m.value);
+            console.log('📊 MVRV — min:', Math.min(...values).toFixed(2),
+                        'max:', Math.max(...values).toFixed(2),
+                        'média:', (values.reduce((a,b)=>a+b,0)/values.length).toFixed(2));
+        } else {
+            console.warn('⚠️ Nenhum dado MVRV disponível para diagnóstico.');
+        }
 
         const needFetch = candles1h.length === 0;
         if (needFetch) {
@@ -1041,8 +1051,7 @@
                 }
             }
 
-            // ===== HTF UNIFICADO (já está no state.htfStructure.bias, que usa os parâmetros) =====
-            // Agora usamos o bias diretamente para bloquear
+            // ===== HTF UNIFICADO (já está no state.htfStructure.bias) =====
             if (primaryDirection === 'LONG' && !blockReason && state.htfStructure.bias === 'BEARISH') {
                 blockReason = `HTF 4H Bearish (${htfBullishVelas} velas bullish necessárias)`;
             }
@@ -1063,7 +1072,7 @@
                 }
             }
 
-            // ===== BOS EM TEMPO REAL (baseado na vela anterior) =====
+            // ===== BOS EM TEMPO REAL =====
             const prevCandle = state.candles1H.length > 1 ? state.candles1H[state.candles1H.length - 2] : null;
             const lastSwingHigh = state.swingHighs.length > 0 ? state.swingHighs[state.swingHighs.length - 1] : null;
             const lastSwingLow = state.swingLows.length > 0 ? state.swingLows[state.swingLows.length - 1] : null;
@@ -1418,7 +1427,7 @@
             position = null;
         }
 
-        // ===== ESTATÍSTICAS (Profit Factor corrigido) =====
+        // ===== ESTATÍSTICAS =====
         const closedTrades = trades.filter(t => t.exitTime !== null && t.pnlPct !== null);
         const totalTrades = closedTrades.length;
         const wins = closedTrades.filter(t => parseFloat(t.pnlPct) > 0).length;
@@ -1961,7 +1970,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.9 – HTF unificado e configurável carregado.');
+    console.log('Backtest Engine v3.5.0 – com log MVRV carregado.');
 </script>
 </body>
 </html>
