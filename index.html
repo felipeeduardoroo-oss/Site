@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.4.8)</title>
+    <title>Backtest Engine — SMC + MTF (v3.4.9)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.8)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.4.9)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -138,16 +138,16 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.4.8:</strong> Parâmetros ajustáveis para LONG e SHORT: MVRV, HTF velas, DI diff.
+        <strong>v3.4.9:</strong> HTF unificado com parâmetros configuráveis. Filtros MVRV, HTF e DI diff ajustáveis para LONG e SHORT.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.4.8 – PARÂMETROS AJUSTÁVEIS LONG/SHORT
+    // BACKTEST ENGINE v3.4.9 – HTF UNIFICADO E CONFIGURÁVEL
     // ============================================================
 
-    // ----- FUNÇÕES DO INDICADOR (mesmo código da v3.4.6) -----
+    // ----- FUNÇÕES DO INDICADOR -----
     const calcEMA = (data, period) => {
         if (!data || data.length === 0) return [];
         const result = [];
@@ -305,20 +305,19 @@
         }
     };
 
-    // HTF com persistência (genérico, usado apenas para bias base)
-    const detectHTFStructure = (candles4H) => {
+    // HTF com persistência configurável (UNIFICADO)
+    const detectHTFStructure = (candles4H, bullishVelas = 3, bearishVelas = 6) => {
         if (!candles4H || candles4H.length < 55) return { bias: 'NEUTRAL', lastSwingHigh: 0, lastSwingLow: Infinity };
         const closes = candles4H.map(c => c.close);
         const ema200Arr = calcEMA(closes, 200);
-        const last3 = closes.slice(-3);
-        const last6 = closes.slice(-6);
-        const ema200Last3 = ema200Arr.slice(-3);
-        const ema200Last6 = ema200Arr.slice(-6);
-        const allBelow3 = last3.every((c, i) => c < ema200Last3[i]);
-        const allBelow6 = last6.every((c, i) => c < ema200Last6[i]);
-        const allAbove = last3.every((c, i) => c > ema200Last3[i]);
+        const lastBull = closes.slice(-bullishVelas);
+        const lastBear = closes.slice(-bearishVelas);
+        const ema200Bull = ema200Arr.slice(-bullishVelas);
+        const ema200Bear = ema200Arr.slice(-bearishVelas);
+        const allAbove = lastBull.every((c, i) => c > ema200Bull[i]);
+        const allBelow = lastBear.every((c, i) => c < ema200Bear[i]);
         let bias = 'NEUTRAL';
-        if (allBelow6) bias = 'BEARISH';
+        if (allBelow) bias = 'BEARISH';
         else if (allAbove) bias = 'BULLISH';
         return { 
             bias, 
@@ -448,7 +447,7 @@
     let lastParams = null;
     let liveInterval = null;
 
-    // ----- FETCH (código completo - mesmo da v3.4.6) -----
+    // ----- FETCH (código completo) -----
     const fetchWithRetry = async (url, opts = {}, retries = 5) => {
         let delay = 100;
         for (let i = 0; i < retries; i++) {
@@ -670,7 +669,7 @@
         return Promise.all(promises);
     }
 
-    // ===== BACKTEST COMPLETO (com parâmetros ajustáveis) =====
+        // ===== BACKTEST COMPLETO =====
     export async function runBacktest(symbol = 'BTCUSDT', days = 30, options = {}) {
         const {
             scoreMin = 68,
@@ -784,8 +783,8 @@
         const blockStats = {};
         let totalCandlesProcessed = 0;
 
-        // ----- UPDATE INDICADORES -----
-        const updateIndicators = (candles, currentTime) => {
+        // ----- UPDATE INDICADORES (recebe parâmetros HTF) -----
+        const updateIndicators = (candles, currentTime, bullishVelas, bearishVelas) => {
             if (candles.length < 14) return;
             const closes = candles.map(c => c.close);
             state.ema50_1H = calcEMA(closes, 50).slice(-1)[0] || closes[closes.length - 1];
@@ -816,7 +815,7 @@
 
             const relevant4H = state.candles4H.filter(c => c.time <= currentTime);
             if (relevant4H.length >= 20) {
-                state.htfStructure = detectHTFStructure(relevant4H);
+                state.htfStructure = detectHTFStructure(relevant4H, bullishVelas, bearishVelas);
             }
 
             let rsiForDiv = [];
@@ -945,7 +944,7 @@
             state.mtfConfluence = getMTFAlignmentAtTime(candle.time);
 
             if (state.candles1H.length >= 20) {
-                updateIndicators(state.candles1H, candle.time);
+                updateIndicators(state.candles1H, candle.time, htfBullishVelas, htfBearishVelas);
             } else {
                 continue;
             }
@@ -1026,41 +1025,29 @@
 
             // ===== MVRV (configurável via parâmetros) =====
             if (state.mvrv !== null) {
-                // Bloqueio existente (MVRV extremo)
+                // Bloqueio extremo (mantido)
                 if (state.mvrv > 3.0 && primaryDirection === 'LONG' && !blockReason) {
                     blockReason = 'MVRV > 3.0 (Mercado sobre-aquecido)';
                 } else if (state.mvrv < 1.0 && primaryDirection === 'SHORT' && !blockReason) {
                     blockReason = 'MVRV < 1.0 (Mercado subavaliado)';
                 }
-                // NOVA EXIGÊNCIA: LONG só se MVRV <= mvrvMaxLong
+                // Exigência LONG: MVRV <= mvrvMaxLong
                 if (primaryDirection === 'LONG' && !blockReason && state.mvrv > mvrvMaxLong) {
                     blockReason = `MVRV > ${mvrvMaxLong.toFixed(1)} (mercado muito esticado para LONG)`;
                 }
-                // NOVA EXIGÊNCIA: SHORT só se MVRV >= mvrvMinShort
+                // Exigência SHORT: MVRV >= mvrvMinShort
                 if (primaryDirection === 'SHORT' && !blockReason && state.mvrv < mvrvMinShort) {
                     blockReason = `MVRV < ${mvrvMinShort.toFixed(1)} (mercado não está esticado o suficiente para SHORT)`;
                 }
             }
 
-            // ===== HTF específico (configurável) =====
-            if (primaryDirection === 'LONG' && !blockReason && state.candles4H.length >= htfBullishVelas) {
-                const closes4H = state.candles4H.slice(-htfBullishVelas).map(c => c.close);
-                const ema2004H = calcEMA(state.candles4H.map(c => c.close), 200);
-                const ema200LastN = ema2004H.slice(-htfBullishVelas);
-                const allAbove = closes4H.every((c, i) => c > ema200LastN[i]);
-                if (!allAbove) {
-                    blockReason = `HTF 4H bullish não confirmado (${htfBullishVelas} velas)`;
-                }
+            // ===== HTF UNIFICADO (já está no state.htfStructure.bias, que usa os parâmetros) =====
+            // Agora usamos o bias diretamente para bloquear
+            if (primaryDirection === 'LONG' && !blockReason && state.htfStructure.bias === 'BEARISH') {
+                blockReason = `HTF 4H Bearish (${htfBullishVelas} velas bullish necessárias)`;
             }
-
-            if (primaryDirection === 'SHORT' && !blockReason && state.candles4H.length >= htfBearishVelas) {
-                const closes4H = state.candles4H.slice(-htfBearishVelas).map(c => c.close);
-                const ema2004H = calcEMA(state.candles4H.map(c => c.close), 200);
-                const ema200LastN = ema2004H.slice(-htfBearishVelas);
-                const allBelow = closes4H.every((c, i) => c < ema200LastN[i]);
-                if (!allBelow) {
-                    blockReason = `HTF 4H bearish não confirmado (${htfBearishVelas} velas)`;
-                }
+            if (primaryDirection === 'SHORT' && !blockReason && state.htfStructure.bias === 'BULLISH') {
+                blockReason = `HTF 4H Bullish (${htfBearishVelas} velas bearish necessárias)`;
             }
 
             // ===== DI diff (configurável) =====
@@ -1087,7 +1074,7 @@
             const bosBear = primaryDirection === 'SHORT' && refLow !== null && candle.close < refLow;
             state.currentBOS = (bosBull || bosBear) ? 'BOS' : 'NEUTRAL';
 
-            // Filtros adicionais (DI, VWAP, HTF)
+            // Filtros adicionais (ADX dinâmico, VWAP, etc.)
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -1112,11 +1099,6 @@
                 blockReason = 'Preço abaixo do VWAP';
             else if (primaryDirection === 'SHORT' && state.price > state.vwap && !blockReason)
                 blockReason = 'Preço acima do VWAP';
-
-            if (primaryDirection === 'LONG' && state.htfStructure.bias === 'BEARISH' && !blockReason)
-                blockReason = 'HTF 4H Bearish';
-            if (primaryDirection === 'SHORT' && state.htfStructure.bias === 'BULLISH' && !blockReason)
-                blockReason = 'HTF 4H Bullish';
 
             if (!blockReason) {
                 const derivCheck = checkDerivativesFilter(state.fundingRate, state.oiDelta);
@@ -1486,7 +1468,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO (com os novos parâmetros) =====
+    // ===== GERAR RELATÓRIO =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1571,7 +1553,7 @@
 
         const p = params || {};
 
-        // HTML Report
+        // HTML Report (mesmo código)
         const reportHTML = `
         <!DOCTYPE html>
         <html>
@@ -1979,7 +1961,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.4.8 – parâmetros ajustáveis LONG/SHORT carregado.');
+    console.log('Backtest Engine v3.4.9 – HTF unificado e configurável carregado.');
 </script>
 </body>
 </html>
