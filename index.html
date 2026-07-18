@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backtest Engine — SMC + MTF (v3.5.1)</title>
+    <title>Backtest Engine — SMC + MTF (v3.5.2)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,7 +52,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.1)</h1>
+    <h1>🧪 Backtest Engine — SMC + MTF (v3.5.2)</h1>
 
     <div class="io-section">
         <button class="btn-io" id="exportBtn">📤 Exportar cache</button>
@@ -137,13 +137,13 @@
 
     <div class="legend">
         <strong>Legenda:</strong> Dados: Preços (Binance 1h/4h), Funding Rate (Binance), OI (Binance), MVRV (CoinMetrics).<br>
-        <strong>v3.5.1:</strong> MVRV baseado em queda do pico de 90 dias (parâmetro ajustável).
+        <strong>v3.5.2:</strong> Corrigido cache de símbolo – trocar ativo agora força nova busca de dados.
     </div>
 </div>
 
 <script type="module">
     // ============================================================
-    // BACKTEST ENGINE v3.5.1 – MVRV COM QUEDA DO PICO (90d)
+    // BACKTEST ENGINE v3.5.2 – CORREÇÃO DE CACHE POR SÍMBOLO
     // ============================================================
 
     // ----- FUNÇÕES DO INDICADOR (mesmo código) -----
@@ -442,6 +442,7 @@
         oi: [],
         mvrv: []
     };
+    let cachedSymbol = null; // NOVO: controle de qual símbolo está em cache
     let lastResult = null;
     let lastParams = null;
     let liveInterval = null;
@@ -571,7 +572,8 @@
         }
         return null;
     };
-    // ----- IMPORTAÇÃO/EXPORTAÇÃO -----
+
+        // ----- IMPORTAÇÃO/EXPORTAÇÃO -----
     async function fetchRawData(symbol = 'BTCUSDT') {
         const days = 1000;
         const now = Date.now();
@@ -628,6 +630,7 @@
             cachedData.funding = data.funding;
             cachedData.oi = data.oi;
             cachedData.mvrv = data.mvrv;
+            cachedSymbol = symbol; // NOVO: atualiza símbolo em cache
             console.log(`Dados armazenados: 1h=${data.candles1h.length}, 4h=${data.candles4h.length}, funding=${data.funding.length}, OI=${data.oi.length}, MVRV=${data.mvrv.length}`);
             status.textContent = `✅ Dados de 1000 dias coletados. Exportando...`;
             exportData();
@@ -715,19 +718,11 @@
         let oiHist = cachedData.oi;
         let mvrvHist = cachedData.mvrv;
 
-        // ===== LOG DE DIAGNÓSTICO MVRV =====
-        if (mvrvHist.length > 0) {
-            const values = mvrvHist.map(m => m.value);
-            console.log('📊 MVRV — min:', Math.min(...values).toFixed(2),
-                        'max:', Math.max(...values).toFixed(2),
-                        'média:', (values.reduce((a,b)=>a+b,0)/values.length).toFixed(2));
-        } else {
-            console.warn('⚠️ Nenhum dado MVRV disponível para diagnóstico.');
-        }
+        // ===== VERIFICAÇÃO DE CACHE POR SÍMBOLO (CORRIGIDO) =====
+        const needFetch = candles1h.length === 0 || cachedSymbol !== symbol;
 
-        const needFetch = candles1h.length === 0;
         if (needFetch) {
-            console.log('Cache vazio. Buscando dados da API...');
+            console.log(`Cache para ${symbol} não encontrado. Buscando dados da API...`);
             try {
                 [candles1h, candles4h, fundingHist, oiHist, mvrvHist] = await Promise.all([
                     fetchHistoricalCandlesPaged(symbol, '1h', startTime, endTime, 1000),
@@ -741,16 +736,23 @@
                 cachedData.funding = fundingHist;
                 cachedData.oi = oiHist;
                 cachedData.mvrv = mvrvHist;
+                cachedSymbol = symbol; // NOVO: atualiza símbolo em cache
+                console.log(`✅ Dados para ${symbol} armazenados em cache.`);
             } catch (e) {
                 return { trades: [], summary: { error: `Erro ao buscar dados: ${e.message}` } };
             }
         } else {
-            console.log('Usando dados do cache (importados).');
-            candles1h = candles1h.filter(c => c.time >= startTime && c.time <= endTime);
-            candles4h = candles4h.filter(c => c.time >= startTime && c.time <= endTime);
-            fundingHist = fundingHist.filter(f => f.time >= startTime && f.time <= endTime);
-            oiHist = oiHist.filter(o => o.time >= startTime && o.time <= endTime);
-            mvrvHist = mvrvHist.filter(m => m.time >= startTime/1000 && m.time <= endTime/1000);
+            console.log(`Usando dados do cache para ${symbol} (${candles1h.length} candles).`);
+        }
+
+        // ===== LOG DE DIAGNÓSTICO MVRV =====
+        if (mvrvHist.length > 0) {
+            const values = mvrvHist.map(m => m.value);
+            console.log('📊 MVRV — min:', Math.min(...values).toFixed(2),
+                        'max:', Math.max(...values).toFixed(2),
+                        'média:', (values.reduce((a,b)=>a+b,0)/values.length).toFixed(2));
+        } else {
+            console.warn('⚠️ Nenhum dado MVRV disponível para diagnóstico.');
         }
 
         const filteredCandles = candles1h.filter(c => c.time >= startTime && c.time <= endTime);
@@ -777,7 +779,7 @@
             mtfConfluence: null, adx: 0, divergence: null, divergence4H: null,
             volumeAnomaly: null, macroBlackout: false, vwap: 0, price: 0,
             fundingRate: 0, oiDelta: 0, mvrv: null,
-            mvrvHistory: [], // NOVO: histórico para queda do pico
+            mvrvHistory: [],
             fundingHistory: [], oiDeltaHistory: [], bandwidthHistory: [],
             adxRolling: [],
             volatilityFactor: 1.0
@@ -925,7 +927,7 @@
             };
         };
 
-        // ===== LOOP PRINCIPAL =====
+        // ===== LOOP PRINCIPAL (idêntico à v3.5.1) =====
         for (let i = 0; i < filteredCandles.length; i++) {
             const candle = filteredCandles[i];
             state.price = candle.close;
@@ -949,7 +951,6 @@
             state.mvrv = mvrvAtTime ? mvrvAtTime.value : null;
             state.macroBlackout = false;
 
-            // Atualiza histórico MVRV (90 dias)
             if (state.mvrv !== null) {
                 state.mvrvHistory.push(state.mvrv);
                 if (state.mvrvHistory.length > 90) state.mvrvHistory.shift();
@@ -1037,7 +1038,7 @@
             let blockReason = scoreData.blockReason;
             const primaryDirection = (score >= scoreMin) ? 'LONG' : (score <= scoreMaxShort ? 'SHORT' : null);
 
-            // ===== NOVA LÓGICA MVRV (queda do pico de 90 dias) =====
+            // ===== MVRV (queda do pico de 90 dias) =====
             if (state.mvrvHistory.length > 0 && primaryDirection === 'SHORT' && !blockReason) {
                 const mvrvPeak90d = Math.max(...state.mvrvHistory);
                 const mvrvDrop = mvrvPeak90d > 0 ? (mvrvPeak90d - state.mvrv) / mvrvPeak90d : 0;
@@ -1054,7 +1055,7 @@
                 blockReason = `HTF 4H Bullish (${htfBearishVelas} velas bearish necessárias)`;
             }
 
-            // ===== DI diff (configurável) =====
+            // ===== DI diff =====
             if (primaryDirection === 'LONG' && !blockReason) {
                 if ((state.adx.plusDI - state.adx.minusDI) < diDiffMinLong) {
                     blockReason = `Momentum bullish insuficiente (DI+ - DI- < ${diDiffMinLong})`;
@@ -1078,7 +1079,6 @@
             const bosBear = primaryDirection === 'SHORT' && refLow !== null && candle.close < refLow;
             state.currentBOS = (bosBull || bosBear) ? 'BOS' : 'NEUTRAL';
 
-            // Filtros adicionais (ADX dinâmico, VWAP, etc.)
             const adxValNow = typeof state.adx === 'object' ? state.adx.adx : state.adx;
             state.adxRolling.push(adxValNow);
             if (state.adxRolling.length > 50) state.adxRolling.shift();
@@ -1471,7 +1471,7 @@
         return { trades, summary };
     }
 
-    // ===== GERAR RELATÓRIO (com parâmetros atualizados) =====
+    // ===== GERAR RELATÓRIO (mesmo código) =====
     function generateReport(trades, summary, symbol, days, params) {
         if (!trades || trades.length === 0) {
             alert('Nenhum trade para gerar relatório. Execute o backtest primeiro.');
@@ -1556,7 +1556,7 @@
 
         const p = params || {};
 
-        // HTML Report
+        // HTML Report (mesmo código)
         const reportHTML = `
         <!DOCTYPE html>
         <html>
@@ -1951,6 +1951,7 @@
                 ]);
                 cachedData.candles1h = c1h;
                 cachedData.candles4h = c4h;
+                cachedSymbol = symbol; // NOVO: atualiza símbolo em cache no modo live
                 document.getElementById('status').textContent = `✅ Dados atualizados: ${new Date().toLocaleTimeString()}`;
             } catch(e) {
                 console.error(e);
@@ -1962,8 +1963,7 @@
         liveInterval = setInterval(updateLive, 15 * 60 * 1000);
     });
 
-    console.log('Backtest Engine v3.5.1 – MVRV com queda do pico de 90d carregado.');
+    console.log('Backtest Engine v3.5.2 – correção de cache por símbolo carregado.');
 </script>
 </body>
 </html>
-    
